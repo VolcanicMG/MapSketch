@@ -27,7 +27,7 @@ without Minecraft.
 | Field | Notes |
 |---|---|
 | `id` UUID, `dim` String | dimension id string |
-| `type` | RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT |
+| `type` | RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT, STAMP |
 | `x, z` double | origin in world block coordinates of the viewed map dimension |
 | `w, h` double | box types: unrotated size. Linear types: derived from points |
 | `pts` float[] | linear types: `x0,z0,x1,z1…` relative to `(x, z)` (floats keep payloads small and precise near the origin) |
@@ -35,6 +35,7 @@ without Minecraft.
 | `stroke`, `fill` ARGB, `fillStyle`, `strokeWidth` (blocks), `strokeStyle`, `roughness` 0-2, `round`, `opacity` | style |
 | `arrowStart`, `arrowEnd` | NONE, ARROW, TRIANGLE, BAR, DOT (lines and arrows) |
 | `text`, `fontSize` (blocks), `align` | TEXT elements; box types draw `text` centred inside, linear at the bounds centre |
+| `stamp` | STAMP elements: `item:<namespace>:<path>` (item/block icon, drawn by the item renderer) or `sym:<name>` (16 built-in vector symbols, tessellated in the stroke colour); validated by syntax, symbol set and, on the server, the item registry |
 | `startBind`, `endBind`, `startFixed`, `endFixed` | arrow/line binding targets; a fixed point (normalized in the target's local frame) for node and inside bindings, null for an edge binding |
 | `seed` | roughness RNG seed fixed at creation: every client draws the same wobble |
 | `groups` UUID[] | innermost first; selecting one member selects the outermost group |
@@ -63,7 +64,7 @@ blocks and scales with zoom (drawn at least 1.5 screen px wide). Freehand is sim
 
 ## Collaboration protocol
 
-Server authoritative. Optional channel `registrar("1").optional()`, every send guarded by `hasChannel`.
+Server authoritative. Optional channel `registrar("4").optional()` (bumped with every wire format change), every send guarded by `hasChannel`.
 
 | Payload | Dir | Content |
 |---|---|---|

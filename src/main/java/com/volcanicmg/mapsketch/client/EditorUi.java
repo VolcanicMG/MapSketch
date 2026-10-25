@@ -23,7 +23,7 @@ public final class EditorUi {
     private static final int BG = 0xE0FFFFFF, BORDER = 0xFF9AA0A6, ACTIVE = 0xFFC9D7FF, ACCENT = 0xFF4C6EF5, TEXT = 0xFF1E1E1E;
     static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
     static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
-    private static final String[] TOOL_GLYPHS = {"✋", "↖", "□", "◇", "○", "→", "—", "✎", "A", "⌫", "✦"};
+    private static final String[] TOOL_GLYPHS = {"✋", "↖", "□", "◇", "○", "→", "—", "✎", "A", "★", "⌫", "✦"};
 
     private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip) {
         boolean hit(double gx, double gy) {
@@ -35,6 +35,9 @@ public final class EditorUi {
     private static int panelX, panelY, panelW, panelH, sliderX, sliderY, sliderW;
     private static boolean sliderDrag;
     private static int screenH;
+    // The panel's current-stamp icon {x, y, size} and id, drawn over its button.
+    private static int[] stampChip;
+    private static String stampChipId;
     // Current-colour chips {x, y, w, h, argb}: drawn over a checkerboard, they open the colour picker.
     private static final List<int[]> chips = new ArrayList<>();
 
@@ -66,7 +69,7 @@ public final class EditorUi {
             x += s + gap;
         }
         boolean creating = switch (Editor.tool()) {
-            case RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT -> true;
+            case RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT, STAMP -> true;
             default -> false;
         };
         if (Editor.selection().isEmpty() && !creating) return;
@@ -137,6 +140,19 @@ public final class EditorUi {
                     if (e.type == Element.Type.ARROW || e.type == Element.Type.LINE) e.arrowEnd = h;
                 });
             });
+        }
+        if (Editor.tool() == Editor.Tool.STAMP || sel.stream().anyMatch(e -> e.type == Element.Type.STAMP)) {
+            label(x0, y, "stamp");
+            int bh = u(18);
+            String cur = sel.stream().filter(e -> e.type == Element.Type.STAMP).map(e -> e.stamp).findFirst().orElse(Editor.style.stamp);
+            stampChip = new int[]{x0, y + u(10), bh};
+            stampChipId = cur;
+            buttons.add(new Btn(x0, y + u(10), panelW - u(8), bh, "      " + StampPicker.name(cur), StampPicker.open(), 0,
+                    () -> {
+                        if (StampPicker.open()) StampPicker.close();
+                        else StampPicker.open(Editor.tool() == Editor.Tool.STAMP);
+                    }, Component.translatable("mapsketch.ui.change_stamp").getString()));
+            y += u(10) + bh + u(2);
         }
         boolean text = Editor.tool() == Editor.Tool.TEXT || sel.stream().anyMatch(e -> !e.text.isEmpty() || e.type == Element.Type.TEXT);
         if (text) {
@@ -226,6 +242,7 @@ public final class EditorUi {
     // ---- input ----
 
     static boolean mousePressed(double gx, double gy, int button) {
+        if (StampPicker.open() && (StampPicker.over(gx, gy) || !over(gx, gy))) return StampPicker.mousePressed(gx, gy, button);
         // The picker eats clicks over it; a click elsewhere closes it (kept) and is consumed, except middle (pan).
         if (ColorPicker.open() && (ColorPicker.over(gx, gy) || !over(gx, gy) || button != 0))
             return ColorPicker.mousePressed(gx, gy, button);
@@ -251,21 +268,21 @@ public final class EditorUi {
 
     /** @return true if the point is on our toolbar, panel or colour picker */
     public static boolean over(double gx, double gy) {
-        if (ColorPicker.over(gx, gy)) return true;
+        if (ColorPicker.over(gx, gy) || StampPicker.over(gx, gy)) return true;
         if (panelW > 0 && gx >= panelX && gx < panelX + panelW && gy >= panelY && gy < panelY + panelH) return true;
         for (Btn b : buttons) if (b.hit(gx, gy)) return true;
         return false;
     }
 
     static boolean mouseDragged(double gx, double gy) {
-        if (ColorPicker.mouseDragged(gx, gy)) return true;
+        if (ColorPicker.mouseDragged(gx, gy) || StampPicker.over(gx, gy)) return true;
         if (!sliderDrag) return false;
         slide(gx);
         return true;
     }
 
     static boolean mouseReleased(double gx, double gy) {
-        if (ColorPicker.mouseReleased(gx, gy)) return true;
+        if (ColorPicker.mouseReleased(gx, gy) || StampPicker.over(gx, gy)) return true;
         if (!sliderDrag) return false;
         sliderDrag = false;
         int o = Editor.style.opacity;
@@ -278,16 +295,17 @@ public final class EditorUi {
     }
 
     static boolean keyPressed(int key) {
-        return ColorPicker.keyPressed(key);
+        return ColorPicker.keyPressed(key) || StampPicker.keyPressed(key);
     }
 
     static boolean charTyped(char c) {
-        return ColorPicker.charTyped(c);
+        return ColorPicker.charTyped(c) || StampPicker.charTyped(c);
     }
 
     /** The map closed or draw mode ended: a picker session still open is kept. */
     static void closePicker() {
         ColorPicker.close(true);
+        StampPicker.close();
     }
 
     // ---- rendering ----
@@ -297,6 +315,7 @@ public final class EditorUi {
         labels.clear();
         labelKeys.clear();
         chips.clear();
+        stampChip = null;
         screenH = (int) (v.winH() / v.guiScale());
         layout(screenW);
         // The picker belongs to the panel: if the panel went away (selection/tool change), keep and close it.
@@ -339,8 +358,10 @@ public final class EditorUi {
             ColorPicker.checker(g, c[0] + 1, c[1] + 1, c[2] - 2, c[3] - 2);
             g.fill(c[0] + 1, c[1] + 1, c[0] + c[2] - 1, c[1] + c[3] - 1, c[4]);
         }
+        if (stampChip != null) StampPicker.icon(g, stampChipId, stampChip[0] + 2, stampChip[1] + 1, stampChip[2] - 2);
         ColorPicker.render(g);
-        if (ColorPicker.over(mouseX, mouseY)) hover = null;
+        StampPicker.render(g, screenW, screenH, mouseX, mouseY);
+        if (ColorPicker.over(mouseX, mouseY) || StampPicker.over(mouseX, mouseY)) hover = null;
         if (hover != null && !hover.tip().isEmpty()) g.renderTooltip(font, Component.literal(hover.tip()), mouseX, mouseY + 12);
     }
 

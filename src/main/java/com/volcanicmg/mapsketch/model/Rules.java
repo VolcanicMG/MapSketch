@@ -88,7 +88,28 @@ public final class Rules {
         if (e.roughness < 0 || e.roughness > 2 || e.opacity < 0 || e.opacity > 100) return "bad style";
         if (!FracIndex.valid(e.order)) return "bad order";
         if (!validFixed(e.startFixed, e.startBind) || !validFixed(e.endFixed, e.endBind)) return "bad binding";
+        if (e.type == Element.Type.STAMP ? !validStamp(e.stamp) : !e.stamp.isEmpty()) return "bad stamp";
         return null;
+    }
+
+    /**
+     * Stamp id syntax: {@code sym:<known symbol>} or {@code item:<namespace>:<path>} with resource-location
+     * characters. Whether an item id exists is checked by the server against its registry.
+     */
+    public static boolean validStamp(String id) {
+        if (id == null || id.isEmpty() || id.length() > ElementCodec.MAX_STAMP) return false;
+        if (id.startsWith("sym:")) return com.volcanicmg.mapsketch.render.Symbols.has(id.substring(4));
+        if (!id.startsWith("item:")) return false;
+        String rl = id.substring(5);
+        int colon = rl.indexOf(':');
+        if (colon <= 0 || colon == rl.length() - 1 || rl.indexOf(':', colon + 1) >= 0) return false;
+        for (int i = 0; i < rl.length(); i++) {
+            char c = rl.charAt(i);
+            boolean ok = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-' || c == '.' || c == ':'
+                    || c == '/' && i > colon;
+            if (!ok) return false;
+        }
+        return true;
     }
 
     /** A fixed binding point: absent, or a finite normalized pair on an end that is actually bound. */

@@ -7,6 +7,10 @@ First release.
 - Fix: arrows bound to a shape now follow it when it is moved, resized or rotated (the grab's lease request was
   emptied before it was sent), and on arrow-key nudges, in the same undo step; arrows bound at both ends to moved
   shapes aim centre to centre.
+- Stamps: a Stamp tool (`S`, `9`) placing item/block icons (any registry item, searchable, paged) or one of 16
+  built-in vector symbols tinted with the stroke colour; recent stamps; resize/rotate/move/opacity like other shapes;
+  on the World Map and Minimap (a tinted tile if item icons cannot render there). The server validates stamp ids
+  (known symbols, items in its registry). Element format 4, network channel 4.
 - Arrow binding as in current Excalidraw: link nodes (side midpoints, centre, plus corners on rectangles and
   diamonds) shown while dragging an end; drops on a node or well inside a shape bind to that fixed point (stored in
   the shape's local frame, so it follows moves, resizes and rotations); drops near the outline bind to the edge;

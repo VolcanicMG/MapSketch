@@ -16,7 +16,7 @@ public final class Geometry {
     public static float[] outline(Element e) {
         double w = e.w, h = e.h;
         return switch (e.type) {
-            case RECTANGLE, TEXT -> e.round && e.type == Element.Type.RECTANGLE ? roundRect(w, h)
+            case RECTANGLE, TEXT, STAMP -> e.round && e.type == Element.Type.RECTANGLE ? roundRect(w, h)
                     : new float[]{0, 0, (float) w, 0, (float) w, (float) h, 0, (float) h};
             case DIAMOND -> {
                 float[] d = {(float) w / 2, 0, (float) w, (float) h / 2, (float) w / 2, (float) h, 0, (float) h / 2};
@@ -167,8 +167,8 @@ public final class Geometry {
         if (wx < b[0] - pad || wx > b[2] + pad || wz < b[1] - pad || wz > b[3] + pad) return false;
         double[] l = toLocal(e, wx, wz);
         float[] o = outline(e);
-        boolean closed = e.closed() || e.type == Element.Type.TEXT;
-        boolean solidInside = e.type == Element.Type.TEXT || e.closed() && (e.fillStyle != Element.FillStyle.NONE
+        boolean closed = e.closed() || e.type == Element.Type.TEXT || e.type == Element.Type.STAMP;
+        boolean solidInside = e.type == Element.Type.TEXT || e.type == Element.Type.STAMP || e.closed() && (e.fillStyle != Element.FillStyle.NONE
                 && (e.fill >>> 24) != 0 || !e.text.isEmpty());
         if (closed && solidInside && inside(o, l[0], l[1])) return true;
         return distToPolyline(o, closed, l[0], l[1]) <= tol + e.strokeWidth / 2;

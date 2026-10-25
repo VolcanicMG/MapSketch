@@ -31,6 +31,7 @@ public final class SelfCheck {
         colors();
         follow();
         fixedBindings();
+        stamps();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -386,6 +387,38 @@ public final class SelfCheck {
         v.endFixed = new float[]{0.5f, 0.5f};
         v.endBind = null;
         check(Rules.validate(v, lim) != null, "fixed point without a binding rejected");
+    }
+
+    /** Stamp ids: syntax and the symbol set (the server also checks items against its registry). */
+    private static void stamps() {
+        check(Rules.validStamp("sym:pin") && Rules.validStamp("item:minecraft:diamond") && Rules.validStamp("item:create:cogwheel")
+                && Rules.validStamp("item:mod:block/sub_path"), "valid stamp ids");
+        check(!Rules.validStamp("sym:nope") && !Rules.validStamp("item:diamond") && !Rules.validStamp("item:Minecraft:diamond")
+                && !Rules.validStamp("item:a:b:c") && !Rules.validStamp("item::x") && !Rules.validStamp("item:a:")
+                && !Rules.validStamp("") && !Rules.validStamp("item:a:" + "x".repeat(130)) && !Rules.validStamp("url:http://x"),
+                "invalid stamp ids");
+        check(com.volcanicmg.mapsketch.render.Symbols.names().size() == 16, "16 symbols");
+        Rules.Limits lim = new Rules.Limits(100, 10);
+        Element st = rect(0, 0, 20, 20);
+        st.type = Element.Type.STAMP;
+        for (String name : com.volcanicmg.mapsketch.render.Symbols.names()) {
+            st.stamp = "sym:" + name;
+            check(Rules.validate(st, lim) == null, "symbol stamp validates: " + name);
+            Tessellator.Mesh m = Tessellator.tessellate(st, 1, 4);
+            check(m.count > 0, "symbol draws: " + name);
+            for (int i = 0; i < m.count * 2; i++) check(m.xy[i] >= -2 && m.xy[i] <= 22, "symbol inside its box: " + name);
+        }
+        st.stamp = "item:minecraft:diamond";
+        check(Rules.validate(st, lim) == null && Tessellator.tessellate(st, 1, 4).count == 0, "item stamps are not tessellated");
+        check(Geometry.hit(st, 10, 10, 0.5), "stamps are hit inside their box");
+        st.stamp = "sym:bogus";
+        check(Rules.validate(st, lim) != null, "unknown symbol rejected");
+        Element plain = rect(0, 0, 5, 5);
+        plain.stamp = "sym:pin";
+        check(Rules.validate(plain, lim) != null, "only stamps carry a stamp id");
+        st.stamp = "sym:star";
+        Element back = ElementCodec.fromBytes(ElementCodec.toBytes(st));
+        check(back.sameContent(st) && back.stamp.equals("sym:star"), "stamp codec round trip");
     }
 
     private static boolean near(double[] p, double x, double z) {

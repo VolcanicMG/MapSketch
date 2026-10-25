@@ -17,7 +17,7 @@ public final class Bindings {
 
     /** @return true for elements arrows can bind to */
     public static boolean bindable(Element t) {
-        return !t.deleted && (t.closed() || t.type == Element.Type.TEXT);
+        return !t.deleted && (t.closed() || t.type == Element.Type.TEXT || t.type == Element.Type.STAMP);
     }
 
     /** @return true for elements that can be bound (arrows and lines) */

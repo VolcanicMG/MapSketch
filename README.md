@@ -32,6 +32,7 @@ mode off, Xaero behaves exactly as normal.
 | Pen | `P` `7` | freehand |
 | Text | `T` `8` | click and type; `Enter` new line, `Esc` or click elsewhere to finish; double-click any shape to edit its text |
 | Eraser | `E` `0` | drag over drawings |
+| Stamp | `S` `9` | pick an item/block icon or a symbol, then click to place it; resize, rotate, move and fade it like any shape |
 | Laser | `K` | a fading trail everyone sees, not saved |
 
 `Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) undo/redo your own edits, `Ctrl+C/X/V` copy/cut/paste, `Ctrl+D` duplicate,
@@ -47,6 +48,13 @@ dropping to not bind.
 The panel on the left sets the style of the selection and of the next shape: stroke and background colour, fill,
 stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can see it, layers,
 duplicate/delete/group/lock.
+
+Stamps: the Stamp tool opens a picker under the toolbar with 16 built-in symbols (pin, flag, X, star, heart, skull,
+house, tower, sword, pickaxe, chest, tree, cave, portal, question and exclamation marks; drawn in the stroke
+colour), your last 8 stamps, and every item and block icon in the game, paged and searchable by name or id. With a
+stamp selected, the panel's Stamp row changes it. Stamps show on the World Map and the Minimap; if item icons cannot
+be drawn in some view, a tinted tile is shown there instead. The server only accepts known symbols and items that
+exist in its registry.
 
 Colours: click a palette swatch, or the current-colour chip at the end of the row to open the colour picker:
 saturation/value square, hue bar, opacity bar, old/new preview (click the old half to go back), the palette (the

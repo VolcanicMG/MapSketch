@@ -45,6 +45,9 @@ public final class SyncServer {
 
         boolean dimensionExists(String dim);
 
+        /** @param id item registry id, e.g. {@code minecraft:diamond} */
+        boolean itemExists(String id);
+
         /** (owner, viewer) share a team (or allied); false without FTB Teams. */
         boolean sameTeam(UUID owner, UUID viewer);
 
@@ -544,6 +547,8 @@ public final class SyncServer {
         String bad = Rules.validate(e, s.limits());
         if (bad != null) return bad;
         if (!env.dimensionExists(e.dim)) return "unknown dimension";
+        if (e.type == Element.Type.STAMP && e.stamp.startsWith("item:") && !env.itemExists(e.stamp.substring(5)))
+            return "unknown item";
         if (existing == null) {
             // Deleting something that never existed would only pile up tombstones.
             if (e.deleted) return "noop";

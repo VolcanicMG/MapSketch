@@ -137,6 +137,12 @@ public final class SketchServer {
         }
 
         @Override
+        public boolean itemExists(String id) {
+            ResourceLocation rl = ResourceLocation.tryParse(id);
+            return rl != null && net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(rl);
+        }
+
+        @Override
         public boolean sameTeam(UUID owner, UUID viewer) {
             return sameTeam.test(owner, viewer);
         }

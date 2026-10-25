@@ -13,8 +13,9 @@ import java.util.UUID;
  * Minecraft. Hard caps here only stop absurd payloads; the configurable limits live in {@link Rules#validate}.
  */
 public final class ElementCodec {
-    // 2 added baseNonce, 3 fixed binding points; older formats are still read.
-    private static final int FORMAT = 3;
+    // 2 added baseNonce, 3 fixed binding points, 4 stamps; older formats are still read.
+    private static final int FORMAT = 4;
+    public static final int MAX_STAMP = 128;
     public static final int MAX_POINTS = 10_000, MAX_TEXT = 4096, MAX_GROUPS = 16, MAX_ORDER = 64;
 
     private ElementCodec() {
@@ -43,6 +44,7 @@ public final class ElementCodec {
         buf.writeByte(e.arrowStart.ordinal());
         buf.writeByte(e.arrowEnd.ordinal());
         utf(buf, e.text, MAX_TEXT);
+        utf(buf, e.stamp, MAX_STAMP);
         buf.writeFloat(e.fontSize);
         buf.writeByte(e.align.ordinal());
         writeNullable(buf, e.startBind);
@@ -90,6 +92,7 @@ public final class ElementCodec {
         e.arrowStart = pick(Element.Head.values(), buf.readByte());
         e.arrowEnd = pick(Element.Head.values(), buf.readByte());
         e.text = utf(buf, MAX_TEXT);
+        if (format >= 4) e.stamp = utf(buf, MAX_STAMP);
         e.fontSize = buf.readFloat();
         e.align = pick(Element.Align.values(), buf.readByte());
         e.startBind = readNullable(buf);

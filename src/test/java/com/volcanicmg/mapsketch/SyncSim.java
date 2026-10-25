@@ -125,6 +125,11 @@ public final class SyncSim {
         }
 
         @Override
+        public boolean itemExists(String id) {
+            return id.equals("minecraft:diamond") || id.equals("minecraft:stone");
+        }
+
+        @Override
         public boolean sameTeam(UUID owner, UUID viewer) {
             return teams.get(owner) != null && teams.get(owner).equals(teams.get(viewer));
         }
@@ -178,6 +183,7 @@ public final class SyncSim {
         rateLimitNoAmplification();
         reset();
         boundArrowFollows();
+        stampValidation();
         System.out.println("SyncSim: " + passed + " scenarios passed");
     }
 
@@ -862,5 +868,19 @@ public final class SyncSim {
         undoArrow.pts = before.pts.clone();
         check(op(ALICE, undoBox, undoArrow).equals("ok") && java.util.Arrays.equals(c(BOB).elements.get(arrow.id).pts, before.pts), "undo reverts both");
         pass("bound arrow follows", "a shape grab leases its bound arrows; the moved arrow is committed with the shape and broadcast; undo reverts both");
+    }
+
+    static void stampValidation() {
+        Element sym = rect(ALICE), item = rect(ALICE), bad = rect(ALICE);
+        sym.type = item.type = bad.type = Element.Type.STAMP;
+        sym.stamp = "sym:tower";
+        item.stamp = "item:minecraft:diamond";
+        bad.stamp = "item:minecraft:not_an_item";
+        check(op(ALICE, sym).equals("ok") && op(ALICE, item).equals("ok") && c(BOB).elements.get(item.id).stamp.equals(item.stamp), "valid stamps stored and shared");
+        check(op(ALICE, bad).equals("rejected:unknown item") && store.get(bad.id) == null, "unknown item rejected");
+        Element relabel = next(ALICE, sym.id);
+        relabel.stamp = "sym:nope";
+        check(op(ALICE, relabel).equals("rejected:bad stamp"), "unknown symbol rejected");
+        pass("stamp validation", "symbol and registry item stamps accepted and broadcast; unknown items and symbols rejected");
     }
 }

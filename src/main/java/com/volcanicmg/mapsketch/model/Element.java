@@ -8,7 +8,8 @@ import java.util.UUID;
  * {@link #version}. Pure Java so the self-check can exercise it without Minecraft.
  */
 public final class Element {
-    public enum Type { RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT }
+    // New types go last: the codec stores the ordinal.
+    public enum Type { RECTANGLE, DIAMOND, ELLIPSE, ARROW, LINE, FREEDRAW, TEXT, STAMP }
 
     public enum FillStyle { NONE, HACHURE, CROSS_HATCH, SOLID }
 
@@ -35,6 +36,8 @@ public final class Element {
     public int opacity = 100;
     public Head arrowStart = Head.NONE, arrowEnd = Head.NONE;
     public String text = "";
+    /** STAMP only: {@code item:<namespace>:<path>} (an item/block icon) or {@code sym:<name>} (built-in symbol). */
+    public String stamp = "";
     public float fontSize = 6;
     public Align align = Align.CENTER;
     public UUID startBind, endBind;
@@ -141,6 +144,7 @@ public final class Element {
         e.arrowStart = arrowStart;
         e.arrowEnd = arrowEnd;
         e.text = text;
+        e.stamp = stamp;
         e.fontSize = fontSize;
         e.align = align;
         e.startBind = startBind;
@@ -167,7 +171,7 @@ public final class Element {
                 && angle == o.angle && stroke == o.stroke && fill == o.fill && fillStyle == o.fillStyle
                 && strokeWidth == o.strokeWidth && strokeStyle == o.strokeStyle && roughness == o.roughness
                 && round == o.round && opacity == o.opacity && arrowStart == o.arrowStart && arrowEnd == o.arrowEnd
-                && text.equals(o.text) && fontSize == o.fontSize && align == o.align
+                && text.equals(o.text) && stamp.equals(o.stamp) && fontSize == o.fontSize && align == o.align
                 && java.util.Objects.equals(startBind, o.startBind) && java.util.Objects.equals(endBind, o.endBind)
                 && Arrays.equals(startFixed, o.startFixed) && Arrays.equals(endFixed, o.endFixed)
                 && Arrays.equals(groups, o.groups) && order.equals(o.order) && visibility == o.visibility

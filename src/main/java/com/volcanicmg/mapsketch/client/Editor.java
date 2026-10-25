@@ -36,7 +36,8 @@ import org.lwjgl.glfw.GLFW;
 public final class Editor {
     public enum Tool {
         HAND('H', '\0'), SELECT('V', '1'), RECTANGLE('R', '2'), DIAMOND('D', '3'), ELLIPSE('O', '4'), ARROW('A', '5'),
-        LINE('L', '6'), FREEDRAW('P', '7'), TEXT('T', '8'), ERASER('E', '0'), LASER('K', '\0');
+        LINE('L', '6'), FREEDRAW('P', '7'), TEXT('T', '8'), STAMP('S', '9'), ERASER('E', '0'),
+        LASER('K', '\0');
 
         public final char key, digit;
 
@@ -62,6 +63,8 @@ public final class Editor {
         /** Null until the user picks one: the server default applies. */
         public Element.Visibility visibility;
         public boolean locked;
+        /** Stamp placed by the Stamp tool. */
+        public String stamp = "sym:pin";
     }
 
     private enum Drag { NONE, CREATE, LINE, FREEDRAW, MOVE, RESIZE, ROTATE, BOX, ERASE, POINT, LASER }
@@ -151,6 +154,11 @@ public final class Editor {
     }
 
     public static void setTool(Tool t) {
+        // The Stamp tool opens its picker; picking it again toggles the picker.
+        if (t == Tool.STAMP) {
+            if (tool == Tool.STAMP && StampPicker.open()) StampPicker.close();
+            else StampPicker.open(true);
+        } else StampPicker.close();
         finishPolyline();
         commitText();
         tool = t;
@@ -566,6 +574,7 @@ public final class Editor {
                 Element hit = topAt(v, wx, wz);
                 startTextEdit(v, hit != null && hit.type != Element.Type.FREEDRAW ? hit : null, wx, wz);
             }
+            case STAMP -> placeStamp(v, wx, wz);
             case ERASER -> {
                 drag = Drag.ERASE;
                 eraseAt(v, wx, wz);
@@ -624,6 +633,20 @@ public final class Editor {
         }
         syncStyleFromSelection();
         if (beginSnapshot()) drag = Drag.MOVE;
+    }
+
+    /** A stamp centred on the click, 32 GUI px across at this zoom; then it is selected like any new shape. */
+    private static void placeStamp(MapView v, double wx, double wz) {
+        if (!com.volcanicmg.mapsketch.model.Rules.validStamp(style.stamp)) return;
+        double size = v.blocks(32);
+        Element e = create(Element.Type.STAMP, wx - size / 2, wz - size / 2, v);
+        e.w = e.h = size;
+        e.stamp = style.stamp;
+        e.round = false;
+        e.fillStyle = Element.FillStyle.NONE;
+        e.fill = 0;
+        draft = e;
+        finishDraft(true);
     }
 
     private static void pressLine(MapView v, double wx, double wz, boolean dbl) {

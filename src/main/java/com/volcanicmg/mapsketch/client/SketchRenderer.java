@@ -20,6 +20,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -105,6 +110,7 @@ public final class SketchRenderer {
         h = h * 31 + e.opacity;
         h = h * 31 + e.arrowStart.ordinal() * 8 + e.arrowEnd.ordinal();
         h = h * 31 + e.seed;
+        h = h * 31 + e.stamp.hashCode();
         return h * 31 + Float.hashCode(e.fontSize) + e.text.hashCode() * 7 + e.align.ordinal();
     }
 
@@ -136,10 +142,70 @@ public final class SketchRenderer {
         }
         for (int i = 0; i < list.size(); i++) {
             Element e = list.get(i);
-            if (!replaced.contains(e.id) && !e.text.isEmpty() && visible(e, view))
-                drawText(g, e, camX, camZ, pxPerBlock, depthOrdered ? -200 + i * step + step / 2 : 0.1f);
+            if (replaced.contains(e.id) || !visible(e, view)) continue;
+            float z = depthOrdered ? -200 + i * step + step / 2 : 0.1f;
+            if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, z);
+            if (e.type == Element.Type.STAMP) drawItem(g, e, camX, camZ, pxPerBlock, z, !depthOrdered);
         }
         g.flush();
+    }
+
+    private static final Map<String, ItemStack> stacks = new HashMap<>();
+    // Set once the item renderer fails (most likely inside Xaero's minimap pass): tiles from then on.
+    private static boolean itemsBroken;
+
+    /** @return the item stack of an {@code item:} stamp (cached), or null for symbols and unknown items */
+    public static ItemStack stack(String stamp) {
+        if (!stamp.startsWith("item:")) return null;
+        ItemStack st = stacks.computeIfAbsent(stamp, k -> {
+            ResourceLocation rl = ResourceLocation.tryParse(k.substring(5));
+            Item item = rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
+            return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
+        });
+        return st.isEmpty() ? null : st;
+    }
+
+    /**
+     * Item/block icon stamps with Minecraft's item renderer, scaled to the element box and rotated with it; depth
+     * flattened so 3D block models stay in the element's layer. A failure switches every item stamp to a plain tile.
+     */
+    static void drawItem(GuiGraphics g, Element e, double camX, double camZ, double pxPerBlock, float z, boolean minimap) {
+        ItemStack st = stack(e.stamp);
+        if (st == null || Math.min(e.w, e.h) * pxPerBlock < 3) return;
+        if (itemsBroken) {
+            tile(g, e, camX, camZ, pxPerBlock);
+            return;
+        }
+        double[] c = e.center();
+        PoseStack pose = g.pose();
+        pose.pushPose();
+        try {
+            pose.translate(c[0] - camX, c[1] - camZ, z);
+            pose.mulPose(Axis.ZP.rotation(e.angle));
+            pose.scale((float) (e.w / 16), (float) (e.h / 16), 0.01f);
+            pose.translate(-8, -8, 0);
+            RenderSystem.setShaderColor(1, 1, 1, e.opacity / 100f);
+            g.renderItem(st, 0, 0);
+            g.flush();
+        } catch (Throwable t) {
+            itemsBroken = true;
+            com.volcanicmg.mapsketch.MapSketch.LOGGER.warn("Item stamps cannot render here ({}); drawing tiles instead",
+                    minimap ? "minimap" : "world map", t);
+        } finally {
+            RenderSystem.setShaderColor(1, 1, 1, 1);
+            pose.popPose();
+        }
+    }
+
+    /** Fallback for an item stamp: a tinted tile with a border. */
+    private static void tile(GuiGraphics g, Element e, double camX, double camZ, double pxPerBlock) {
+        Element t = e.copy();
+        t.type = Element.Type.RECTANGLE;
+        t.stamp = "";
+        t.fillStyle = Element.FillStyle.SOLID;
+        t.fill = 0x80000000 | e.stroke & 0xFFFFFF;
+        t.roughness = 0;
+        drawLive(g, java.util.List.of(t), camX, camZ, pxPerBlock, 1f);
     }
 
     /** Draws live elements on top (own shape in progress, other players' ghosts), cached by content. */
@@ -154,7 +220,10 @@ public final class SketchRenderer {
         } finally {
             end(bb, false);
         }
-        for (Element e : list) if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, 0.1f);
+        for (Element e : list) {
+            if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, 0.1f);
+            if (e.type == Element.Type.STAMP) drawItem(g, e, camX, camZ, pxPerBlock, 0.1f, false);
+        }
         g.flush();
     }
 
