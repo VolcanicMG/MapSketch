@@ -25,7 +25,7 @@ mode off, Xaero behaves exactly as normal.
 
 | Tool | Keys | |
 |---|---|---|
-| Hand | `H` | pan and zoom the map as usual (holding `Space` does the same with any tool) |
+| Hand | `H` | pan and zoom the map as usual (holding `Space` or dragging with the middle mouse button does the same with any tool) |
 | Select | `V`, `1` | click, shift-click, drag a box; drag to move, handles to resize (shift = keep ratio) and rotate |
 | Rectangle / Diamond / Ellipse | `R` `2` / `D` `3` / `O` `4` | drag; shift = square/circle |
 | Arrow / Line | `A` `5` / `L` `6` | drag for a straight one, or click to add points; double-click, `Enter` or `Esc` to finish; shift snaps to 15° |

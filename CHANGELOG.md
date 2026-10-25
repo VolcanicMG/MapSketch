@@ -4,6 +4,9 @@
 
 First release.
 
+- Middle-mouse drag pans the world map with any tool (and outside draw mode). New shapes default to the
+  "architect" sloppiness (no wobble).
+
 - Vector drawing editor on Xaero's World Map in a draw mode (toolbar button or `G`): hand, select, rectangle,
   diamond, ellipse, arrow, line (click-to-add polyline), pen, text, eraser, laser pointer, with Excalidraw-style
   number/letter shortcuts.

@@ -53,7 +53,7 @@ public final class Config {
         DEFAULT_FILL = c.comment("Background colour of new shapes, #AARRGGBB; alpha 00 = transparent.")
                 .define("defaultFillColor", "#00000000");
         DEFAULT_WIDTH = c.defineEnum("defaultStrokeWidth", Width.BOLD);
-        DEFAULT_ROUGHNESS = c.comment("0 = architect, 1 = artist, 2 = cartoonist.").defineInRange("defaultSloppiness", 1, 0, 2);
+        DEFAULT_ROUGHNESS = c.comment("0 = architect, 1 = artist, 2 = cartoonist.").defineInRange("defaultSloppiness", 0, 0, 2);
         UI_SCALE = c.comment("Size of the toolbar and properties panel.").defineInRange("uiScale", 1.0, 0.5, 3.0);
         CLIENT_SPEC = c.build();
     }

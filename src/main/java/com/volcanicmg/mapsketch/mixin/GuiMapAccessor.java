@@ -15,4 +15,7 @@ public interface GuiMapAccessor {
 
     @Accessor("scale")
     double mapsketch$scale();
+
+    @Accessor("leftMouseButton")
+    xaero.map.gui.MapMouseButtonPress mapsketch$leftMouseButton();
 }

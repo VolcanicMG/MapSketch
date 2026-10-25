@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import org.lwjgl.glfw.GLFW;
 import xaero.map.MapProcessor;
 import xaero.map.gui.GuiMap;
 import xaero.map.gui.GuiWorldMapSettings;
@@ -27,7 +28,7 @@ import xaero.map.gui.GuiWorldMapSettings;
  * Input uses NeoForge's cancellable screen events, so no Xaero input method is patched.
  */
 public final class WorldMapHooks {
-    private static boolean mixinSeen, drewInMap, broken;
+    private static boolean mixinSeen, drewInMap, broken, middlePan;
 
     private WorldMapHooks() {
     }
@@ -38,17 +39,33 @@ public final class WorldMapHooks {
             if (e.getScreen() instanceof GuiMap) Editor.onMapOpened();
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.Closing.class, safe(e -> {
-            if (e.getScreen() instanceof GuiMap) Editor.onMapClosed();
+            if (e.getScreen() instanceof GuiMap) {
+                middlePan = false;
+                Editor.onMapClosed();
+            }
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.Render.Post.class, safe(WorldMapHooks::onRender));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseButtonPressed.Pre.class, safe(e -> {
             MapView v = viewOf(e.getScreen());
             if (v == null) return;
             if (!EditorUi.over(e.getMouseX(), e.getMouseY()) && overXaeroWidget(e.getScreen(), e.getMouseX(), e.getMouseY())) return;
+            if (e.getButton() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && !EditorUi.over(e.getMouseX(), e.getMouseY())) {
+                // Xaero pans while its left button is down; "clicked" stays false so no waypoint click fires.
+                ((GuiMapAccessor) e.getScreen()).mapsketch$leftMouseButton().isDown = true;
+                middlePan = true;
+                e.setCanceled(true);
+                return;
+            }
             if (Editor.mousePressed(v, e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseButtonReleased.Pre.class, safe(e -> {
             MapView v = viewOf(e.getScreen());
+            if (v != null && middlePan && e.getButton() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                middlePan = false;
+                ((GuiMapAccessor) e.getScreen()).mapsketch$leftMouseButton().isDown = false;
+                e.setCanceled(true);
+                return;
+            }
             if (v != null && Editor.mouseReleased(v, e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseDragged.Pre.class, safe(e -> {
