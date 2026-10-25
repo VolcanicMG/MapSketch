@@ -12,6 +12,10 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- One consistent pixel-icon family for the whole toolbar and properties panel (tools, fill, width, stroke style,
+  sloppiness, edges, arrowheads, text size and alignment, visibility, layers, actions): 16x16 icons with the same
+  2 px line weight and optical size, drawn at whole-pixel scale, dark normally and accent-blue when selected, no font
+  glyphs; tooltips on every button. Start arrowheads are mirrored. `./gradlew iconSheet` renders a preview.
 - Text background: text can have a padded background box (colour from the panel's Text background row, none or
   solid; round or sharp edges; follows opacity and rotation; included in selection and hit-testing). Default is no
   box. Panel icons for text alignment, layers, duplicate/delete/group/ungroup/lock and the draw-mode button are now

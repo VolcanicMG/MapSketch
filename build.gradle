@@ -61,6 +61,13 @@ tasks.register('syncSim', JavaExec) {
     jvmArgs '-ea'
 }
 tasks.named('check') { dependsOn 'selfCheck', 'syncSim' }
+// Preview PNG of the toolbar/panel icons (not part of check).
+tasks.register('iconSheet', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.volcanicmg.mapsketch.IconSheet'
+    args = [project.findProperty('out') ?: "${buildDir}/ui-icons-sheet.png"]
+    jvmArgs '-Djava.awt.headless=true'
+}
 // Preview PNG of the pixel stamps and vanilla map icons (not part of check).
 tasks.register('stampSheet', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath

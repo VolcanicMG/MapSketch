@@ -33,6 +33,7 @@ public final class SelfCheck {
         fixedBindings();
         stamps();
         textBackground();
+        uiIcons();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -480,6 +481,39 @@ public final class SelfCheck {
         t.angle = (float) (Math.PI / 2);
         double[] b = t.worldBounds();
         check(Math.abs(b[2] - b[0] - 12) < 1e-4 && Math.abs(b[3] - b[1] - 24) < 1e-4, "rotated box bounds");
+    }
+
+    /** The toolbar/panel icon family: 16x16, known chars, not empty, inside the 1 px margin, a common optical size. */
+    private static void uiIcons() {
+        java.util.Set<String> names = com.volcanicmg.mapsketch.render.UiIconArt.names();
+        for (String must : new String[]{"draw", "hand", "select", "rectangle", "diamond", "ellipse", "arrow", "line", "pen", "text",
+                "stamp", "eraser", "laser", "fill_none", "fill_hachure", "fill_cross", "fill_solid", "width_thin", "width_bold",
+                "width_extra", "style_solid", "style_dashed", "style_dotted", "slop_0", "slop_1", "slop_2", "edge_sharp",
+                "edge_round", "head_none", "head_arrow", "head_triangle", "head_bar", "head_dot", "align_left", "align_center",
+                "align_right", "font_s", "font_xl", "vis_private", "vis_team", "vis_public", "transparent", "lock", "unlock"})
+            check(names.contains(must), "icon present: " + must);
+        for (String n : names) {
+            String[] g = com.volcanicmg.mapsketch.render.UiIconArt.grid(n);
+            check(g.length == 16, "16 rows: " + n);
+            int minX = 16, minY = 16, maxX = -1, maxY = -1, ink = 0;
+            for (int y = 0; y < 16; y++) {
+                check(g[y].length() == 16 && g[y].matches("[.#]+"), "16 known chars: " + n + " row " + y);
+                for (int x = 0; x < 16; x++)
+                    if (g[y].charAt(x) == '#') {
+                        ink++;
+                        minX = Math.min(minX, x);
+                        maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y);
+                        maxY = Math.max(maxY, y);
+                    }
+            }
+            check(ink > 6, "not empty: " + n);
+            check(minX >= 1 && minY >= 1 && maxX <= 14 && maxY <= 14, "inside the 1 px margin: " + n + " " + minX + "," + minY + "-" + maxX + "," + maxY);
+            check(Math.max(maxX - minX, maxY - minY) + 1 >= 8, "common optical size: " + n);
+        }
+        // Mirroring (start arrowheads) flips columns.
+        check(com.volcanicmg.mapsketch.render.UiIconArt.ink("head_bar@m", 15 - 13, 8) == com.volcanicmg.mapsketch.render.UiIconArt.ink("head_bar", 13, 8)
+                && com.volcanicmg.mapsketch.render.UiIconArt.has("head_dot@m"), "mirrored icons");
     }
 
     private static int lum(int rgb) {

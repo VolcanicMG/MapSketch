@@ -23,7 +23,9 @@ public final class EditorUi {
     private static final int BG = 0xE0FFFFFF, BORDER = 0xFF9AA0A6, ACTIVE = 0xFFC9D7FF, ACCENT = 0xFF4C6EF5, TEXT = 0xFF1E1E1E;
     static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
     static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
-    private static final String[] TOOL_GLYPHS = {"✋", "↖", "□", "◇", "○", "→", "—", "✎", "A", "★", "⌫", "✦"};
+    // Drawn icons (UiIconArt), in Tool order.
+    private static final String[] TOOL_GLYPHS = {"#hand", "#select", "#rectangle", "#diamond", "#ellipse", "#arrow", "#line",
+            "#pen", "#text", "#stamp", "#eraser", "#laser"};
 
     private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip) {
         boolean hit(double gx, double gy) {
@@ -53,7 +55,7 @@ public final class EditorUi {
         buttons.clear();
         panelW = 0;
         if (!Config.ENABLED.get()) return;
-        int s = u(18), gap = u(2);
+        int s = u(20), gap = u(2);
         Editor.Tool[] tools = Editor.Tool.values();
         int n = Editor.drawMode() ? tools.length + 1 : 1;
         int x = screenW / 2 - (n * (s + gap)) / 2, y = 24;
@@ -101,7 +103,7 @@ public final class EditorUi {
         x = x0;
         for (int c : FILLS) {
             int fc = c;
-            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? "∅" : "", bg == c, c, () -> apply(s -> {
+            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? "#transparent" : "", bg == c, c, () -> apply(s -> {
                 if (textOnly) s.textFill = fc;
                 else s.fill = fc;
             }, e -> setBackground(e, fc)), c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
@@ -109,25 +111,25 @@ public final class EditorUi {
         }
         chip(x, yy, textOnly ? ColorPicker.Target.TEXT_FILL : ColorPicker.Target.FILL, bg);
         y += row;
-        if (textOnly) y = options(x0, y, "fill", new String[]{"∅", "■"}, (st.textFill >>> 24) != 0 ? 1 : 0, i -> {
+        if (textOnly) y = options(x0, y, "fill", new String[]{"#fill_none", "#fill_solid"}, (st.textFill >>> 24) != 0 ? 1 : 0, i -> {
             int c = i == 0 ? 0 : (st.textFill >>> 24) != 0 ? st.textFill : 0xFFFFFFFF;
             apply(s -> s.textFill = c, e -> setBackground(e, c));
         });
-        else y = options(x0, y, "fill", new String[]{"∅", "▧", "▦", "■"}, st.fillStyle.ordinal(), i -> {
+        else y = options(x0, y, "fill", new String[]{"#fill_none", "#fill_hachure", "#fill_cross", "#fill_solid"}, st.fillStyle.ordinal(), i -> {
             Element.FillStyle f = Element.FillStyle.values()[i];
             apply(s -> s.fillStyle = f, e -> {
                 if (e.type != Element.Type.TEXT) e.fillStyle = f;
             });
         });
-        y = options(x0, y, "width", new String[]{"thin", "bold", "extra"}, st.width, i ->
+        y = options(x0, y, "width", new String[]{"#width_thin", "#width_bold", "#width_extra"}, st.width, i ->
                 apply(s -> s.width = i, e -> e.strokeWidth = Editor.widthPreset(i)));
-        y = options(x0, y, "stroke_style", new String[]{"—", "- -", "···"}, st.strokeStyle.ordinal(), i -> {
+        y = options(x0, y, "stroke_style", new String[]{"#style_solid", "#style_dashed", "#style_dotted"}, st.strokeStyle.ordinal(), i -> {
             Element.StrokeStyle f = Element.StrokeStyle.values()[i];
             apply(s -> s.strokeStyle = f, e -> e.strokeStyle = f);
         });
-        y = options(x0, y, "sloppiness", new String[]{"─", "∿", "≈"}, st.roughness, i ->
+        y = options(x0, y, "sloppiness", new String[]{"#slop_0", "#slop_1", "#slop_2"}, st.roughness, i ->
                 apply(s -> s.roughness = i, e -> e.roughness = i));
-        y = options(x0, y, "edges", new String[]{"┐", "╮"}, st.round ? 1 : 0, i ->
+        y = options(x0, y, "edges", new String[]{"#edge_sharp", "#edge_round"}, st.round ? 1 : 0, i ->
                 apply(s -> s.round = i == 1, e -> e.round = i == 1 && e.type != Element.Type.FREEDRAW));
         // Opacity slider
         label(x0, y, "opacity");
@@ -138,8 +140,9 @@ public final class EditorUi {
         boolean arrows = Editor.tool() == Editor.Tool.ARROW || Editor.tool() == Editor.Tool.LINE
                 || sel.stream().anyMatch(e -> e.type == Element.Type.ARROW || e.type == Element.Type.LINE);
         if (arrows) {
-            String[] heads = {"✕", "→", "▶", "|", "●"};
-            y = options(x0, y, "arrow_start", heads, st.arrowStart.ordinal(), i -> {
+            String[] heads = {"#head_none", "#head_arrow", "#head_triangle", "#head_bar", "#head_dot"};
+            String[] startHeads = {"#head_none@m", "#head_arrow@m", "#head_triangle@m", "#head_bar@m", "#head_dot@m"};
+            y = options(x0, y, "arrow_start", startHeads, st.arrowStart.ordinal(), i -> {
                 Element.Head h = Element.Head.values()[i];
                 apply(s -> s.arrowStart = h, e -> {
                     if (e.type == Element.Type.ARROW || e.type == Element.Type.LINE) e.arrowStart = h;
@@ -167,7 +170,7 @@ public final class EditorUi {
         }
         boolean text = Editor.tool() == Editor.Tool.TEXT || sel.stream().anyMatch(e -> !e.text.isEmpty() || e.type == Element.Type.TEXT);
         if (text) {
-            y = options(x0, y, "font_size", new String[]{"S", "M", "L", "XL"}, st.font, i ->
+            y = options(x0, y, "font_size", new String[]{"#font_s", "#font_m", "#font_l", "#font_xl"}, st.font, i ->
                     apply(s -> s.font = i, e -> e.fontSize = Editor.fontPreset(i)));
             y = options(x0, y, "align", new String[]{"#align_left", "#align_center", "#align_right"}, st.align.ordinal(), i -> {
                 Element.Align a = Element.Align.values()[i];
@@ -176,7 +179,7 @@ public final class EditorUi {
         }
         ServerInfoPayload info = ClientStore.info();
         boolean teams = info != null && info.teams();
-        String[] vis = teams ? new String[]{"private", "team", "public"} : new String[]{"private", "public"};
+        String[] vis = teams ? new String[]{"#vis_private", "#vis_team", "#vis_public"} : new String[]{"#vis_private", "#vis_public"};
         Element.Visibility cur = st.visibility != null ? st.visibility : info != null ? info.defaultVisibility() : Element.Visibility.PUBLIC;
         int visIdx = teams ? cur.ordinal() : cur == Element.Visibility.PRIVATE ? 0 : 1;
         y = options(x0, y, "visibility", vis, visIdx, i -> {
@@ -228,15 +231,13 @@ public final class EditorUi {
 
     private static int options(int x, int y, String key, String[] glyphs, int active, java.util.function.IntConsumer pick) {
         label(x, y, key);
-        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(14);
+        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(18);
         for (int i = 0; i < glyphs.length; i++) {
             int fi = i;
             String g = glyphs[i];
-            // Lowercase words are translation keys; anything else is a glyph.
-            // "#name" is a drawn icon (tooltip from its translation key).
-            String tip = g.matches("[a-z_]+") ? Component.translatable("mapsketch.ui." + g).getString()
-                    : g.startsWith("#") ? Component.translatable("mapsketch.ui." + g.substring(1)).getString() : g;
-            String label = g.startsWith("#") ? g : tip;
+            // "#name" is a drawn icon (UiIconArt; "@m" = mirrored), its tooltip the translation of the name.
+            String tip = Component.translatable("mapsketch.ui." + g.substring(1).replace("@m", "")).getString();
+            String label = g;
             buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, label, i == active, 0, () -> pick.accept(fi), tip));
         }
         return y + u(10) + h + u(2);
@@ -244,7 +245,7 @@ public final class EditorUi {
 
     private static int actions(int x, int y, String key, String[] glyphs, Runnable[] run, String[] tips) {
         label(x, y, key);
-        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(14);
+        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(18);
         for (int i = 0; i < glyphs.length; i++)
             buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, glyphs[i], false, 0, run[i],
                     Component.translatable("mapsketch.ui." + tips[i]).getString()));
@@ -413,7 +414,7 @@ public final class EditorUi {
             } else if (b.active()) g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), ACTIVE);
             outline(g, b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : BORDER);
             if (b.label().startsWith("#") && UiIcons.has(b.label().substring(1)))
-                UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : TEXT);
+                UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(), b.active() ? UiIcons.SELECTED : UiIcons.NORMAL);
             else if (!b.label().isEmpty()) {
                 int tw = font.width(b.label());
                 g.drawString(font, b.label(), b.x() + (b.w() - tw) / 2, b.y() + (b.h() - 8) / 2, b.swatch() == 0xFF1E1E1E ? 0xFFFFFFFF : TEXT, false);
