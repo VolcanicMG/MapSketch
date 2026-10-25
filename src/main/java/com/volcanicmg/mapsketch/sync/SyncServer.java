@@ -705,6 +705,8 @@ public final class SyncServer {
             }
             int from = in.appendFrom()[i];
             if (from < 0 ? Rules.validate(g, env.settings().limits()) != null : !validAppend(g, from)) continue;
+            // Ghost stamps get the same registry check as stored ones: no made-up item ids reach other viewers.
+            if (g.type == Element.Type.STAMP && g.stamp.startsWith("item:") && !env.itemExists(g.stamp.substring(5))) continue;
             ghosts.add(g);
             appends.add(from);
         }

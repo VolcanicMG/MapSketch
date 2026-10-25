@@ -878,9 +878,21 @@ public final class SyncSim {
         bad.stamp = "item:minecraft:not_an_item";
         check(op(ALICE, sym).equals("ok") && op(ALICE, item).equals("ok") && c(BOB).elements.get(item.id).stamp.equals(item.stamp), "valid stamps stored and shared");
         check(op(ALICE, bad).equals("rejected:unknown item") && store.get(bad.id) == null, "unknown item rejected");
+        Element air = rect(ALICE);
+        air.type = Element.Type.STAMP;
+        air.stamp = "item:minecraft:air";
+        check(op(ALICE, air).equals("rejected:bad stamp"), "air rejected");
+        // Live ghosts get the registry check too.
+        now += 100;
+        Element ghostBad = bad.copy(), ghostOk = rect(ALICE);
+        ghostOk.type = Element.Type.STAMP;
+        ghostOk.stamp = "item:minecraft:stone";
+        server.live(ALICE, new Live(DIM, 0, 0, true, Element.Visibility.PUBLIC, List.of(ghostBad, ghostOk), new int[]{-1, -1}, new float[0]));
+        List<Element> seen = c(BOB).live.get(ALICE).ghosts();
+        check(seen.size() == 1 && seen.get(0).stamp.equals("item:minecraft:stone"), "made-up item ghost dropped");
         Element relabel = next(ALICE, sym.id);
         relabel.stamp = "sym:nope";
         check(op(ALICE, relabel).equals("rejected:bad stamp"), "unknown symbol rejected");
-        pass("stamp validation", "symbol and registry item stamps accepted and broadcast; unknown items and symbols rejected");
+        pass("stamp validation", "symbol and registry item stamps accepted and broadcast; unknown items, air and symbols rejected, also as live ghosts");
     }
 }

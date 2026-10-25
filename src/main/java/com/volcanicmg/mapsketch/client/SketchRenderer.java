@@ -154,15 +154,21 @@ public final class SketchRenderer {
     // Set once the item renderer fails (most likely inside Xaero's minimap pass): tiles from then on.
     private static boolean itemsBroken;
 
-    /** @return the item stack of an {@code item:} stamp (cached), or null for symbols and unknown items */
+    /**
+     * @return the item stack of an {@code item:} stamp, or null for symbols and unknown items. Only hits are cached,
+     * so the cache is bounded by the item registry whatever ids remote players send.
+     */
     public static ItemStack stack(String stamp) {
         if (!stamp.startsWith("item:")) return null;
-        ItemStack st = stacks.computeIfAbsent(stamp, k -> {
-            ResourceLocation rl = ResourceLocation.tryParse(k.substring(5));
-            Item item = rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
-            return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
-        });
-        return st.isEmpty() ? null : st;
+        ItemStack st = stacks.get(stamp);
+        if (st != null) return st;
+        ResourceLocation rl = ResourceLocation.tryParse(stamp.substring(5));
+        Item item = rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
+        if (item == Items.AIR) return null;
+        st = new ItemStack(item);
+        if (st.isEmpty()) return null;
+        stacks.put(stamp, st);
+        return st;
     }
 
     /**

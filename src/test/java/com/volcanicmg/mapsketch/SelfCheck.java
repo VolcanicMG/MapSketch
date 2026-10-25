@@ -395,7 +395,7 @@ public final class SelfCheck {
                 && Rules.validStamp("item:mod:block/sub_path"), "valid stamp ids");
         check(!Rules.validStamp("sym:nope") && !Rules.validStamp("item:diamond") && !Rules.validStamp("item:Minecraft:diamond")
                 && !Rules.validStamp("item:a:b:c") && !Rules.validStamp("item::x") && !Rules.validStamp("item:a:")
-                && !Rules.validStamp("") && !Rules.validStamp("item:a:" + "x".repeat(130)) && !Rules.validStamp("url:http://x"),
+                && !Rules.validStamp("") && !Rules.validStamp("item:minecraft:air") && !Rules.validStamp("item:a:" + "x".repeat(130)) && !Rules.validStamp("url:http://x"),
                 "invalid stamp ids");
         check(com.volcanicmg.mapsketch.render.Symbols.names().size() == 16, "16 symbols");
         Rules.Limits lim = new Rules.Limits(100, 10);

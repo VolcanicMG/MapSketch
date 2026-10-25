@@ -139,7 +139,10 @@ public final class SketchServer {
         @Override
         public boolean itemExists(String id) {
             ResourceLocation rl = ResourceLocation.tryParse(id);
-            return rl != null && net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(rl);
+            if (rl == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(rl)) return false;
+            // Air (and anything whose default stack is empty) would be an invisible, still selectable stamp.
+            net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(rl);
+            return item != net.minecraft.world.item.Items.AIR && !new net.minecraft.world.item.ItemStack(item).isEmpty();
         }
 
         @Override

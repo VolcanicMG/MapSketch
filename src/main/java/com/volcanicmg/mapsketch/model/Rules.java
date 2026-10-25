@@ -101,6 +101,8 @@ public final class Rules {
         if (id.startsWith("sym:")) return com.volcanicmg.mapsketch.render.Symbols.has(id.substring(4));
         if (!id.startsWith("item:")) return false;
         String rl = id.substring(5);
+        // Air has no icon: it would be an invisible, still selectable stamp.
+        if (rl.equals("minecraft:air")) return false;
         int colon = rl.indexOf(':');
         if (colon <= 0 || colon == rl.length() - 1 || rl.indexOf(':', colon + 1) >= 0) return false;
         for (int i = 0; i < rl.length(); i++) {
