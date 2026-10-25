@@ -16,6 +16,10 @@ public final class PanelPreview {
     private static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
 
     public static void main(String[] args) throws Exception {
+        if (args.length > 1 && args[1].equals("hints")) {
+            hintsMain(args[0]);
+            return;
+        }
         // Two 480x620 GUI-pixel screens: GUI scale 2 (no FTB Teams) and GUI scale 3 (FTB Teams).
         int sw = 480, sh = 620;
         BufferedImage img = new BufferedImage(sw * 2 + sw * 3, sh * 3, BufferedImage.TYPE_INT_ARGB);
@@ -147,5 +151,66 @@ public final class PanelPreview {
         a.sprite("widget/slider", x, y, w, h);
         a.sprite("widget/slider_handle", x + (int) (v * (w - 8)), y, 8, h);
         a.shadowText(text, x + (w - a.width(text) + 1) / 2, y + (h - 8) / 2, 0xFFFFFFFF);
+    }
+
+    /** The controls guide for the Select and the Arrow tool, collapsed button too, at GUI scale 2 and 3. */
+    private static void hintsMain(String outPath) throws Exception {
+        String lang = new String(java.nio.file.Files.readAllBytes(java.nio.file.Path.of("src/main/resources/assets/mapsketch/lang/en_us.json")),
+                java.nio.charset.StandardCharsets.UTF_8);
+        java.util.function.Function<String, String> tr = k -> {
+            if (k.equals("@toggle")) return "G";
+            int a = lang.indexOf("\"" + k + "\":");
+            if (a < 0) return k;
+            int b = lang.indexOf('"', lang.indexOf(':', a) + 1) + 1;
+            return lang.substring(b, lang.indexOf('"', b)).replace("\\u00b0", "\u00b0");
+        };
+        int sw = 2 * (com.volcanicmg.mapsketch.render.Hints.WIDTH + 12) + 40, sh = 300;
+        BufferedImage img = new BufferedImage(sw * 2 + sw * 3, sh * 3, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setColor(new java.awt.Color(0x6E8B4E));
+        g.fillRect(0, 0, img.getWidth(), img.getHeight());
+        for (int k = 0; k < 2; k++) {
+            McAssets a = new McAssets(g, k + 2);
+            a.shadowText("GUI scale " + a.scale, 4, 4, 0xFFFFFFFF);
+            int x = 4;
+            for (String tool : new String[]{"select", "arrow"}) {
+                hintsPanel(a, x, 16, java.util.List.of(tool, "general"), tr);
+                x += com.volcanicmg.mapsketch.render.Hints.WIDTH + 12;
+            }
+            button(a, x, 16, 20, 20, "#help", false, false, false);
+            a.shadowText("collapsed", x - 8, 40, 0xFFFFFFFF);
+            g.translate(sw * a.scale, 0);
+        }
+        g.dispose();
+        File out = new File(outPath);
+        if (out.getParentFile() != null) out.getParentFile().mkdirs();
+        ImageIO.write(img, "png", out);
+        System.out.println("wrote " + out);
+    }
+
+    /** Mirrors EditorUi.hints + keyCap. */
+    private static void hintsPanel(McAssets a, int x, int y, java.util.List<String> ids, java.util.function.Function<String, String> tr) throws Exception {
+        int w = com.volcanicmg.mapsketch.render.Hints.WIDTH, pad = com.volcanicmg.mapsketch.render.Hints.PAD;
+        var laid = com.volcanicmg.mapsketch.render.Hints.layout(ids, tr, a::width);
+        int h = pad + 18 + 2 + laid.height() + pad;
+        panelFrame(a, x, y, w, h);
+        a.text(tr.apply("mapsketch.hint.title"), x + pad + 1, y + pad + 2, PanelLayout.LABEL);
+        button(a, x + w - 4 - 18, y + 4, 18, 18, "#help", false, false, false);
+        int cx = x + pad, cy = y + pad + 20, capH = com.volcanicmg.mapsketch.render.Hints.CAP_H;
+        for (var it : laid.items()) {
+            if (it.cap()) {
+                int kx = cx + it.x(), ky = cy + it.y(), kw = it.w();
+                a.fill(kx, ky, kw, capH, PanelLayout.SLOT_DARK);
+                a.fill(kx + 1, ky + 1, kw - 2, capH - 2, PanelLayout.PANEL);
+                a.fill(kx + 1, ky + 1, kw - 3, 1, PanelLayout.HIGHLIGHT);
+                a.fill(kx + 1, ky + 1, 1, capH - 3, PanelLayout.HIGHLIGHT);
+                a.fill(kx + 2, ky + capH - 2, kw - 3, 1, PanelLayout.SLOT);
+                a.fill(kx + kw - 2, ky + 2, 1, capH - 3, PanelLayout.SLOT);
+                a.text(it.text(), kx + 3, ky + 2, PanelLayout.LABEL);
+            } else if (it.title()) {
+                a.text(it.text(), cx + it.x() + 1, cy + it.y(), PanelLayout.LABEL);
+                a.fill(cx, cy + it.y() + 9, it.w(), 1, PanelLayout.SLOT);
+            } else a.text(it.text(), cx + it.x(), cy + it.y(), 0xFF555555);
+        }
     }
 }

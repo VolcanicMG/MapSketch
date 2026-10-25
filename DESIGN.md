@@ -13,7 +13,7 @@ Not a raster paint tool: every drawing is a vector element that can be selected,
 | Package | Minecraft? | What |
 |---|---|---|
 | `model` | no | `Element`, `ElementCodec` (one byte encoding for wire and disk), `Rules`, `Geometry`, `FracIndex` |
-| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `UiIconArt` (16x16 pixel UI icons), `PanelLayout` (panel/toolbar geometry and colours) |
+| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `UiIconArt` (16x16 pixel UI icons), `PanelLayout` (panel/toolbar geometry and colours), `Hints` (controls guide content + layout) |
 | `sync` | no | `SyncServer` (the server state machine), `ElementStore`, `Live`, `Outbox`, `TokenBucket` |
 | `net` | yes | payloads |
 | `server` | yes | `SketchServer` adapter, `SketchData` (SavedData), `SketchCommands`, `FtbTeamsCompat` |
@@ -230,7 +230,7 @@ and disables that layer for the session. The safe-mode (non-FBO) minimap is not 
 Server: `defaultVisibility` (AUTO = TEAM with FTB Teams, else PUBLIC), `teamCanEdit` (true), `shareWithAllies`
 (true), `maxPointsPerElement` (2000), `maxElementsPerPlayer` (2000), `maxElementsPerDimension` (20000),
 `maxTextLength` (500), `editKBps` (256, also the live budget). Client: `enabled`, `showOnMinimap`,
-`showOthersCursors`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`.
+`showOthersCursors`, `showHints`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`.
 
 Commands (op level 2): `/mapsketch clear player <p> | dimension <d> | all`, `/mapsketch release <player> | all`,
 `/mapsketch stats`.

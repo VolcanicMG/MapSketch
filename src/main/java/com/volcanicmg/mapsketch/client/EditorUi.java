@@ -5,6 +5,7 @@ import com.volcanicmg.mapsketch.model.Bindings;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.net.ServerInfoPayload;
+import com.volcanicmg.mapsketch.render.Hints;
 import com.volcanicmg.mapsketch.render.PanelLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -284,6 +285,90 @@ public final class EditorUi {
         return com.volcanicmg.mapsketch.model.Colors.hex(c);
     }
 
+    // ---- controls guide ----
+
+    // Top edge for the guide (below Xaero's top-right widgets), set each frame by the map hook.
+    private static int hintsTop = 4;
+    // The guide's ? button {x, y, w, h} this frame, or null.
+    private static int[] hintBtn;
+
+    /** @param top the lowest bottom edge of Xaero's widgets in the top-right corner, in GUI px */
+    public static void setHintsTop(int top) {
+        hintsTop = top;
+    }
+
+    /** Shows or hides the guide and remembers the choice in the client config. */
+    static void toggleHints() {
+        Config.SHOW_HINTS.set(!Config.SHOW_HINTS.get());
+        Config.SHOW_HINTS.save();
+    }
+
+    private static String hintText(String key) {
+        return key.equals("@toggle") ? MapSketchKeys.TOGGLE.getTranslatedKeyMessage().getString() : Component.translatable(key).getString();
+    }
+
+    /** @return the guide's sections for the current state: what is happening now first, then General */
+    private static List<String> hintSections() {
+        String now = Editor.typingText() ? "typing" : Editor.placingLineEnd() ? "attach" : Editor.tool().name().toLowerCase();
+        // A fresh arrow/line keeps its own section (it already says how to attach) until an end is actually being placed.
+        if (now.equals("attach") && Editor.bindPreview() == null && (Editor.tool() == Editor.Tool.ARROW || Editor.tool() == Editor.Tool.LINE))
+            now = Editor.tool().name().toLowerCase();
+        return List.of(now, "general");
+    }
+
+    /**
+     * The "Controls" guide, docked top-right in draw mode: key caps and actions for the current tool or state, then the
+     * general controls; collapsed to its ? button when hidden. Hidden while a popover would overlap it; only the button
+     * takes input.
+     */
+    private static void hints(GuiGraphics g, int screenW, int mx, int my) {
+        hintBtn = null;
+        if (!Editor.drawMode() || !Config.ENABLED.get()) return;
+        Font font = Minecraft.getInstance().font;
+        int w = Hints.WIDTH, x = screenW - 4 - w, y = Math.max(hintsTop, TOOLBAR_Y + PanelLayout.TOOL + 8);
+        boolean open = Config.SHOW_HINTS.get();
+        Hints.Laid laid = open ? Hints.layout(hintSections(), EditorUi::hintText, font::width) : null;
+        // Short screens: drop General rather than run off the bottom.
+        if (open && y + laid.height() + 2 * Hints.PAD + 20 > screenH - 4)
+            laid = Hints.layout(hintSections().subList(0, 1), EditorUi::hintText, font::width);
+        int h = open ? Hints.PAD + 18 + 2 + laid.height() + Hints.PAD : 20;
+        int bx = open ? x + w - 4 - 18 : screenW - 4 - 20, by = open ? y + 4 : y, bs = open ? 18 : 20;
+        int[] area = open ? new int[]{x, y, w, h} : new int[]{bx, by, bs, bs};
+        for (int[] p : new int[][]{ColorPicker.bounds(), StampPicker.bounds()})
+            if (p != null && p[0] < area[0] + area[2] && area[0] < p[0] + p[2] && p[1] < area[1] + area[3] && area[1] < p[1] + p[3]) return;
+        hintBtn = new int[]{bx, by, bs, bs};
+        if (open) {
+            VanillaUi.panel(g, x, y, w, h);
+            g.drawString(font, Component.translatable("mapsketch.hint.title"), x + Hints.PAD + 1, y + Hints.PAD + 2, PanelLayout.LABEL, false);
+            int cx = x + Hints.PAD, cy = y + Hints.PAD + 20;
+            for (Hints.Item it : laid.items()) {
+                if (it.cap()) keyCap(g, font, cx + it.x(), cy + it.y(), it.w(), it.text());
+                else if (it.title()) {
+                    g.drawString(font, it.text(), cx + it.x() + 1, cy + it.y(), PanelLayout.LABEL, false);
+                    g.fill(cx, cy + it.y() + 9, cx + it.w(), cy + it.y() + 10, PanelLayout.SLOT);
+                } else g.drawString(font, it.text(), cx + it.x(), cy + it.y(), 0xFF555555, false);
+            }
+        }
+        boolean hover = mx >= bx && mx < bx + bs && my >= by && my < by + bs;
+        VanillaUi.button(g, bx, by, bs, bs, false, false, hover);
+        UiIcons.draw(g, "help", bx, by, bs, bs, UiIcons.NORMAL);
+    }
+
+    /** A small vanilla-style key cap: dark outline, white / grey bevel, the key's label. */
+    private static void keyCap(GuiGraphics g, Font font, int x, int y, int w, String label) {
+        g.fill(x, y, x + w, y + Hints.CAP_H, PanelLayout.SLOT_DARK);
+        g.fill(x + 1, y + 1, x + w - 1, y + Hints.CAP_H - 1, PanelLayout.PANEL);
+        g.fill(x + 1, y + 1, x + w - 2, y + 2, PanelLayout.HIGHLIGHT);
+        g.fill(x + 1, y + 1, x + 2, y + Hints.CAP_H - 2, PanelLayout.HIGHLIGHT);
+        g.fill(x + 2, y + Hints.CAP_H - 2, x + w - 1, y + Hints.CAP_H - 1, PanelLayout.SLOT);
+        g.fill(x + w - 2, y + 2, x + w - 1, y + Hints.CAP_H - 1, PanelLayout.SLOT);
+        g.drawString(font, label, x + 3, y + 2, PanelLayout.LABEL, false);
+    }
+
+    private static boolean hintHit(double gx, double gy) {
+        return hintBtn != null && gx >= hintBtn[0] && gx < hintBtn[0] + hintBtn[2] && gy >= hintBtn[1] && gy < hintBtn[1] + hintBtn[3];
+    }
+
     // ---- input ----
 
     // The current press was consumed by our UI: only then are its drags and release ours too.
@@ -300,6 +385,10 @@ public final class EditorUi {
         if (ColorPicker.open() && (ColorPicker.over(gx, gy) || !over(gx, gy) || button != 0))
             return ColorPicker.mousePressed(gx, gy, button);
         if (ColorPicker.open() && button == 0 && !chipHit(gx, gy)) ColorPicker.close(true);
+        if (button == 0 && hintHit(gx, gy)) {
+            toggleHints();
+            return true;
+        }
         if (button != 0) return over(gx, gy);
         if (panelW > 0 && gx >= sliderX && gx < sliderX + sliderW && gy >= sliderY && gy < sliderY + sliderH && inPanelView(gy)) {
             sliderDrag = true;
@@ -321,7 +410,7 @@ public final class EditorUi {
 
     /** @return true if the point is on our toolbar, panel or colour picker */
     public static boolean over(double gx, double gy) {
-        if (ColorPicker.over(gx, gy) || StampPicker.over(gx, gy)) return true;
+        if (ColorPicker.over(gx, gy) || StampPicker.over(gx, gy) || hintHit(gx, gy)) return true;
         if (panelW > 0 && gx >= panelX && gx < panelX + panelW && gy >= panelY && gy < panelY + panelH) return true;
         for (Btn b : buttons) if (b.hit(gx, gy)) return true;
         return false;
@@ -443,11 +532,13 @@ public final class EditorUi {
             VanillaUi.panel(g, first.x() - 4, first.y() - 4, last.x() + last.w() - first.x() + 8, last.h() + 8);
         }
         buttons(g, false, mx, my);
+        hints(g, screenW, mx, my);
         ColorPicker.render(g);
         StampPicker.render(g, screenW, screenH, mouseX, mouseY);
         Btn hover = null;
         for (Btn b : buttons) if (b.hit(mx, my)) hover = b;
         if (hover != null && !hover.tip().isEmpty()) g.renderTooltip(font, Component.literal(hover.tip()), mouseX, mouseY + 12);
+        else if (hintHit(mx, my)) g.renderTooltip(font, Component.translatable("mapsketch.hint.toggle"), mouseX, mouseY + 12);
     }
 
     /**

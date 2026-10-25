@@ -184,6 +184,12 @@ public final class WorldMapHooks {
         }
         drewInMap = false;
         Editor.onFrame(v, e.getMouseX(), e.getMouseY());
+        // The controls guide docks top-right below Xaero's widgets there.
+        int top = 4;
+        for (GuiEventListener l : e.getScreen().children())
+            if (l instanceof AbstractWidget w && w.visible && w.getX() + w.getWidth() > e.getScreen().width - com.volcanicmg.mapsketch.render.Hints.WIDTH - 8
+                    && w.getY() < e.getScreen().height / 3) top = Math.max(top, w.getY() + w.getHeight() + 4);
+        EditorUi.setHintsTop(top);
         EditorUi.render(g, v, e.getMouseX(), e.getMouseY(), e.getScreen().width);
     }
 }

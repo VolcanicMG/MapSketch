@@ -21,7 +21,8 @@ server never loads Xaero or client classes. Singleplayer works through the integ
 ## Drawing
 
 Open Xaero's World Map and click the ✐ button at the top (or press `G`, rebindable) to enter draw mode. With draw
-mode off, Xaero behaves exactly as normal.
+mode off, Xaero behaves exactly as normal. A "Controls" guide on the right lists the keys for the current tool;
+its ? button hides it (remembered), or bind "Show/hide the controls guide" in Controls.
 
 | Tool | Keys | |
 |---|---|---|

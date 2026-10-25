@@ -82,6 +82,13 @@ tasks.register('panelPreview', JavaExec) {
     args = [project.findProperty('out') ?: "${buildDir}/panel-preview.png"]
     jvmArgs '-Djava.awt.headless=true'
 }
+// Mock of the draw-mode controls guide (Select and Arrow) at GUI scale 2 and 3 (not part of check).
+tasks.register('hintsPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.volcanicmg.mapsketch.PanelPreview'
+    args = [project.findProperty('out') ?: "${buildDir}/hints-preview.png", 'hints']
+    jvmArgs '-Djava.awt.headless=true'
+}
 // Preview PNG of the pixel stamps and vanilla map icons (not part of check).
 tasks.register('stampSheet', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath

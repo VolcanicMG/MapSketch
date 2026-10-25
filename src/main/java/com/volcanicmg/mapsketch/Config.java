@@ -22,6 +22,7 @@ public final class Config {
     public static final ModConfigSpec.BooleanValue ENABLED;
     public static final ModConfigSpec.BooleanValue SHOW_ON_MINIMAP;
     public static final ModConfigSpec.BooleanValue SHOW_OTHERS_CURSORS;
+    public static final ModConfigSpec.BooleanValue SHOW_HINTS;
     public static final ModConfigSpec.ConfigValue<String> DEFAULT_STROKE;
     public static final ModConfigSpec.ConfigValue<String> DEFAULT_FILL;
     public static final ModConfigSpec.EnumValue<Width> DEFAULT_WIDTH;
@@ -48,6 +49,8 @@ public final class Config {
         SHOW_ON_MINIMAP = c.define("showOnMinimap", true);
         SHOW_OTHERS_CURSORS = c.comment("Show other players' cursors, shapes in progress and laser on the world map.")
                 .define("showOthersCursors", true);
+        SHOW_HINTS = c.comment("Show the controls guide on the right of the world map in draw mode (toggled with its ? button).")
+                .define("showHints", true);
         DEFAULT_STROKE = c.comment("Stroke colour of new drawings, #RRGGBB or #AARRGGBB.").define("defaultStrokeColor", "#1e1e1e");
         DEFAULT_FILL = c.comment("Background colour of new shapes, #AARRGGBB; alpha 00 = transparent.")
                 .define("defaultFillColor", "#00000000");

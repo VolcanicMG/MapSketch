@@ -73,6 +73,11 @@ final class StampPicker {
         return PAD + FIELD + 3 + TAB + 3 + 10 + cell() + 4 + LINES * cell() + 3 + NAV + PAD;
     }
 
+    /** @return {x, y, w, h} as last drawn while open, else null */
+    static int[] bounds() {
+        return open ? new int[]{x, y, width(), height()} : null;
+    }
+
     static boolean over(double gx, double gy) {
         return open && gx >= x && gx < x + width() && gy >= y && gy < y + height();
     }

@@ -12,6 +12,12 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Controls guide: in draw mode a "Controls" panel docks top-right on the world map (below Xaero's widgets there)
+  with key caps for the current tool or state (Select, each shape tool, Arrow/Line, Pen, Text, Stamp, Eraser, Laser,
+  Hand; "Attaching the end" while an arrow end is placed near a shape, "Typing" while editing text) and the general
+  controls. Its ? button collapses it; the choice is kept in the client config (`showHints`, on by default). An
+  unbound "Show/hide the controls guide" keybind does the same. Hidden while a picker overlaps it; only the button
+  takes clicks. `./gradlew hintsPreview` renders a mock.
 - Stamps: redrawn X (symmetric 45-degree arms, rounded ends, clean crossing), map pin (round head with a hole,
   sharp centred point, shaded right side), crown (three ball-tipped peaks, band with three jewels) and home base
   (symmetric house with a centred door and a flag on the ridge, clearly unlike House). Vanilla map-icon stamps are

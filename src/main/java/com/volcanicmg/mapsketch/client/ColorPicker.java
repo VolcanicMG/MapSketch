@@ -161,6 +161,11 @@ final class ColorPicker {
         return gx >= b[0] && gx < b[0] + b[2] && gy >= b[1] && gy < b[1] + b[3];
     }
 
+    /** @return {x, y, w, h} while open, else null */
+    static int[] bounds() {
+        return target == null ? null : new int[]{x, y, width(), height()};
+    }
+
     static boolean over(double gx, double gy) {
         return target != null && gx >= x && gx < x + width() && gy >= y && gy < y + height();
     }

@@ -7,6 +7,7 @@ import com.volcanicmg.mapsketch.model.ElementCodec;
 import com.volcanicmg.mapsketch.model.FracIndex;
 import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.model.Rules;
+import com.volcanicmg.mapsketch.render.Hints;
 import com.volcanicmg.mapsketch.render.PixelArt;
 import com.volcanicmg.mapsketch.render.Rough;
 import com.volcanicmg.mapsketch.render.UiIconArt;
@@ -36,6 +37,7 @@ public final class SelfCheck {
         stamps();
         textBackground();
         uiIcons();
+        hints();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -530,6 +532,42 @@ public final class SelfCheck {
             }
         }
         check(refs > 40, "icon references found: " + refs);
+    }
+
+    /** The controls guide: a section per tool, rows within the limit, every lang key present, rows fit the width. */
+    private static void hints() throws Exception {
+        String editor = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/volcanicmg/mapsketch/client/Editor.java"));
+        String tools = editor.substring(editor.indexOf("public enum Tool {"), editor.indexOf(";", editor.indexOf("public enum Tool {")));
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("([A-Z]+)\\('").matcher(tools);
+        int n = 0;
+        while (m.find()) {
+            check(Hints.SECTIONS.containsKey(m.group(1).toLowerCase()), "hints section for tool " + m.group(1));
+            n++;
+        }
+        check(n >= 12, "tools found: " + n);
+        for (String id : java.util.List.of("general", "attach", "typing")) check(Hints.SECTIONS.containsKey(id), "hints section " + id);
+        for (var en : Hints.SECTIONS.entrySet())
+            check(!en.getValue().isEmpty() && en.getValue().size() <= Hints.MAX_ROWS, "hints rows within limit: " + en.getKey());
+        String lang = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources/assets/mapsketch/lang/en_us.json"));
+        for (String k : Hints.langKeys()) check(lang.contains("\"" + k + "\":"), "lang key: " + k);
+        check(lang.contains("\"key.mapsketch.hints\":") && lang.contains("\"mapsketch.configuration.showHints\":"), "hints keybind/config lang");
+        // Layout with a 6 px/char font and English-length strings: everything inside the inner width, rows go down.
+        java.util.function.Function<String, String> tr = k -> {
+            int a = lang.indexOf("\"" + k + "\":");
+            if (a < 0) return "G";
+            int b = lang.indexOf('"', lang.indexOf(':', a) + 1) + 1;
+            return lang.substring(b, lang.indexOf('"', b));
+        };
+        for (String id : Hints.SECTIONS.keySet()) {
+            Hints.Laid l = Hints.layout(java.util.List.of(id, "general"), tr, s -> s.length() * 6);
+            int lastY = -1;
+            for (Hints.Item it : l.items()) {
+                check(it.x() >= 0 && it.x() + it.w() <= Hints.WIDTH - 2 * Hints.PAD, "hint fits: " + id + " '" + it.text() + "'");
+                check(it.y() >= lastY || it.x() > 0, "hints go down: " + id);
+                lastY = Math.max(lastY, it.y());
+            }
+            check(l.height() > 0, "hints height: " + id);
+        }
     }
 
     private static int lum(int rgb) {

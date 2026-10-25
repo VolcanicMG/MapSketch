@@ -973,6 +973,16 @@ public final class Editor {
         return bindPreview;
     }
 
+    /** @return true while an arrow/line end is being placed (drawn, clicked point by point, or its handle dragged) */
+    static boolean placingLineEnd() {
+        return drag == Drag.LINE || drag == Drag.POINT || draft != null && draft.linear();
+    }
+
+    /** @return true while text is being typed on the map */
+    static boolean typingText() {
+        return editing != null;
+    }
+
     /** Recomputes the preview for the end being dragged (or the trailing point of a click-built line). */
     private static void previewBind(UUID self, double wx, double wz) {
         bindPreview = null;
@@ -1346,6 +1356,10 @@ public final class Editor {
             return true;
         }
         if (!drawMode) return false;
+        if (MapSketchKeys.HINTS.matches(key, scancode) && editing == null) {
+            EditorUi.toggleHints();
+            return true;
+        }
         boolean ctrl = (mods & GLFW.GLFW_MOD_CONTROL) != 0 || (mods & GLFW.GLFW_MOD_SUPER) != 0;
         boolean shift = (mods & GLFW.GLFW_MOD_SHIFT) != 0;
         if (editing != null) {
