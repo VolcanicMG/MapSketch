@@ -77,6 +77,9 @@ public final class WorldMapHooks {
             if (v == null || e.getScreen().getFocused() instanceof EditBox) return;
             if (Editor.keyPressed(v, e.getKeyCode(), e.getScanCode(), e.getModifiers())) e.setCanceled(true);
         }));
+        NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseScrolled.Pre.class, safe(e -> {
+            if (e.getScreen() instanceof GuiMap && EditorUi.mouseScrolled(e.getMouseX(), e.getMouseY(), e.getScrollDeltaY())) e.setCanceled(true);
+        }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.KeyReleased.Pre.class, safe(e -> {
             if (e.getScreen() instanceof GuiMap && Editor.keyReleased(e.getKeyCode())) e.setCanceled(true);
         }));

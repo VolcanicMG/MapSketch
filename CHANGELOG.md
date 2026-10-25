@@ -12,6 +12,12 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Stamps redone as pixel art: the symbols are 16x16 Minecraft-style sprites in four tones from the stroke colour
+  (same ids, 8 new ones: anchor, arrow_up, campfire, crown, shield, coin, home_base, danger). New `deco:` stamps
+  with the vanilla map icons. Every stamp, items included, is now a flat nearest-filtered textured quad on both
+  maps (items use their sprite instead of the 3D item renderer, which drew squashed, blurry and oddly lit inside
+  Xaero's minimap); tiny or over-budget stamps are tinted tiles. Picker: visible search field across all tabs with
+  grouped results, `@modid` item filter, keyboard highlight, and Symbols / Map icons / Items tabs. Network channel 5.
 - Stamps: a Stamp tool (`S`, `9`) placing item/block icons (any registry item, searchable, paged) or one of 16
   built-in vector symbols tinted with the stroke colour; recent stamps; resize/rotate/move/opacity like other shapes;
   on the World Map and Minimap (a tinted tile if item icons cannot render there). The server validates stamp ids

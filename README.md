@@ -49,12 +49,22 @@ The panel on the left sets the style of the selection and of the next shape: str
 stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can see it, layers,
 duplicate/delete/group/lock.
 
-Stamps: the Stamp tool opens a picker under the toolbar with 16 built-in symbols (pin, flag, X, star, heart, skull,
-house, tower, sword, pickaxe, chest, tree, cave, portal, question and exclamation marks; drawn in the stroke
-colour), your last 8 stamps, and every item and block icon in the game, paged and searchable by name or id. With a
-stamp selected, the panel's Stamp row changes it. Stamps show on the World Map and the Minimap; if item icons cannot
-be drawn in some view, a tinted tile is shown there instead. The server only accepts known symbols and items that
-exist in its registry.
+Stamps: the Stamp tool opens a picker under the toolbar with a search field and three tabs:
+
+- **Symbols**: 24 pixel-art icons in Minecraft item style (pin, flag, X, star, heart, skull, house, tower, sword,
+  pickaxe, chest, tree, cave, portal, question and exclamation marks, anchor, arrow, campfire, crown, shield, coin,
+  home base, danger), coloured from the stroke colour (dark outline, shade, fill, highlight).
+- **Map icons**: the game's own map markers (red X, target, players, banners in 16 colours, mansion, monument,
+  villages, temple, swamp hut, trial chambers, frame).
+- **Items**: every item and block icon, including modded ones.
+
+Typing searches all three at once (items by name or id); `@modid` limits items to one mod (e.g. `@create`,
+`@minecolonies cog`). Arrow keys move the highlight, Enter picks it, Esc clears the search and then closes. Your last
+8 stamps sit in a row above the tabs. With a stamp selected, the panel's Stamp row changes it.
+
+Stamps are drawn as crisp pixel textures on the World Map and the Minimap, rotated and scaled with the stamp; when
+smaller than a few pixels they become a tinted tile. The server only accepts known symbols and map icons and items
+that exist in its registry.
 
 Colours: click a palette swatch, or the current-colour chip at the end of the row to open the colour picker:
 saturation/value square, hue bar, opacity bar, old/new preview (click the old half to go back), the palette (the

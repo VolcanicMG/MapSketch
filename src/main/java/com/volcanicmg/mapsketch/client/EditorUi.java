@@ -309,6 +309,11 @@ public final class EditorUi {
         Editor.style.opacity = (int) Math.round(Math.max(0, Math.min(1, (gx - sliderX) / sliderW)) * 100);
     }
 
+    /** @return true when the wheel scrolled one of our popovers (Xaero must not zoom) */
+    public static boolean mouseScrolled(double gx, double gy, double delta) {
+        return StampPicker.open() && StampPicker.mouseScrolled(gx, gy, delta);
+    }
+
     static boolean keyPressed(int key) {
         return ColorPicker.keyPressed(key) || StampPicker.keyPressed(key);
     }

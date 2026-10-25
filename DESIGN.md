@@ -35,7 +35,7 @@ without Minecraft.
 | `stroke`, `fill` ARGB, `fillStyle`, `strokeWidth` (blocks), `strokeStyle`, `roughness` 0-2, `round`, `opacity` | style |
 | `arrowStart`, `arrowEnd` | NONE, ARROW, TRIANGLE, BAR, DOT (lines and arrows) |
 | `text`, `fontSize` (blocks), `align` | TEXT elements; box types draw `text` centred inside, linear at the bounds centre |
-| `stamp` | STAMP elements: `item:<namespace>:<path>` (item/block icon, drawn by the item renderer) or `sym:<name>` (16 built-in vector symbols, tessellated in the stroke colour); validated by syntax, symbol set and, on the server, the item registry |
+| `stamp` | STAMP elements: `sym:<name>` (24 pixel-art symbols, `render/PixelArt` 16x16 grids in four tones from the stroke colour), `deco:<name>` (vanilla map icons, `Rules.DECORATIONS`) or `item:<namespace>:<path>` (the item's flat sprite); all drawn as nearest-filtered textured quads through the element transform; validated by syntax, symbol/icon set and, on the server, the item registry |
 | `startBind`, `endBind`, `startFixed`, `endFixed` | arrow/line binding targets; a fixed point (normalized in the target's local frame) for node and inside bindings, null for an edge binding |
 | `seed` | roughness RNG seed fixed at creation: every client draws the same wobble |
 | `groups` UUID[] | innermost first; selecting one member selects the outermost group |
@@ -64,7 +64,7 @@ blocks and scales with zoom (drawn at least 1.5 screen px wide). Freehand is sim
 
 ## Collaboration protocol
 
-Server authoritative. Optional channel `registrar("4").optional()` (bumped with every wire format change), every send guarded by `hasChannel`.
+Server authoritative. Optional channel `registrar("5").optional()` (bumped with every wire format change), every send guarded by `hasChannel`.
 
 | Payload | Dir | Content |
 |---|---|---|
