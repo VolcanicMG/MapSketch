@@ -78,5 +78,6 @@
   "mapsketch.ui.lock": "Lock (only you and ops can edit)",
   "mapsketch.ui.unlock": "Unlock",
   "mapsketch.ui.transparent": "Transparent",
-  "mapsketch.ui.hex": "Type a hex colour, Enter to apply"
+  "mapsketch.ui.pick_color": "Pick a colour",
+  "mapsketch.ui.no_recent": "Recent colours appear here"
 }

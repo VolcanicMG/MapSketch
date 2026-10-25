@@ -176,6 +176,7 @@ public final class Editor {
     }
 
     private static void cancelAll() {
+        EditorUi.closePicker();
         finishPolyline();
         commitText();
         if (drag != Drag.NONE) endDrag();
@@ -403,6 +404,52 @@ public final class Editor {
         if (!out.isEmpty()) commit(out);
     }
 
+    // Live preview (colour picker): the state before it and the token of our preview copy, per element.
+    private static final Map<UUID, Element> previewBefore = new java.util.LinkedHashMap<>();
+    private static final Map<UUID, Integer> previewNonce = new HashMap<>();
+
+    /**
+     * Shows {@code mut} on the editable selection locally only: nothing is sent and no undo step is recorded until
+     * {@link #endPreview}. Each call starts again from the pre-preview state, so it can run every frame of a drag.
+     */
+    public static void previewSelection(Consumer<Element> mut) {
+        for (UUID id : selection) {
+            Element cur = live(id);
+            if (cur == null || !canEdit(cur)) continue;
+            Integer mine = previewNonce.get(id);
+            // Someone else's state replaced our preview (or none yet): start from it.
+            if (mine == null || cur.nonce != mine) previewBefore.put(id, cur.copy());
+            Element c = previewBefore.get(id).copy();
+            mut.accept(c);
+            if (c.type == Element.Type.TEXT) fitText(c);
+            ClientStore.local(c, false);
+            previewNonce.put(id, c.nonce);
+        }
+    }
+
+    /**
+     * Ends a preview: kept = one property change, one undo step and one op for all changed elements; otherwise the
+     * pre-preview states come back. Elements someone else changed meanwhile are left as they are.
+     */
+    public static void endPreview(boolean keep) {
+        List<Change> changes = new ArrayList<>();
+        for (Map.Entry<UUID, Element> en : previewBefore.entrySet()) {
+            Element cur = live(en.getKey());
+            Integer mine = previewNonce.get(en.getKey());
+            if (cur == null || mine == null || cur.nonce != mine) continue;
+            Element before = en.getValue();
+            if (!keep || before.sameContent(cur)) {
+                ClientStore.restore(before);
+                continue;
+            }
+            ClientStore.send(cur.id);
+            changes.add(new Change(before, cur.copy()));
+        }
+        previewBefore.clear();
+        previewNonce.clear();
+        record(changes);
+    }
+
     public static void deleteSelection() {
         editSelection(e -> e.deleted = true);
         selection.clear();
@@ -622,7 +669,10 @@ public final class Editor {
 
     public static boolean mouseReleased(MapView v, double gx, double gy, int button) {
         view = v;
-        if (EditorUi.mouseReleased()) return true;
+        if (EditorUi.mouseReleased(gx, gy)) {
+            pressConsumed = false;
+            return true;
+        }
         boolean consumed = pressConsumed;
         pressConsumed = false;
         if (!drawMode || button != 0 || drag == Drag.NONE) return consumed;

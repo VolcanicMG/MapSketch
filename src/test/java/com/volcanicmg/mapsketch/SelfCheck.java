@@ -1,5 +1,6 @@
 package com.volcanicmg.mapsketch;
 
+import com.volcanicmg.mapsketch.model.Colors;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.ElementCodec;
 import com.volcanicmg.mapsketch.model.FracIndex;
@@ -26,6 +27,7 @@ public final class SelfCheck {
         order();
         orderAtScale();
         tessellationCaps();
+        colors();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -284,6 +286,22 @@ public final class SelfCheck {
         Element thin = rect(0, 0, 10, 10);
         thin.strokeWidth = 0.001f;
         check(Rules.validate(thin, new Rules.Limits(100, 10)) != null, "sub-minimum stroke rejected");
+    }
+
+    /** Colour picker maths: HSV and RGB round-trip, packing, hex. */
+    private static void colors() {
+        for (int rgb = 0; rgb < 0x1000000; rgb += 0x010305) {
+            float[] hsv = Colors.rgbToHsv(rgb);
+            check(Colors.hsvToRgb(hsv[0], hsv[1], hsv[2]) == rgb, "hsv round trip " + Integer.toHexString(rgb));
+        }
+        check(Colors.hsvToRgb(0, 1, 1) == 0xFF0000 && Colors.hsvToRgb(1f / 3, 1, 1) == 0x00FF00
+                && Colors.hsvToRgb(1, 1, 1) == 0xFF0000, "primary hues, hue wraps");
+        int c = Colors.argb(0x80, 0x123456);
+        check(c == 0x80123456 && Colors.alpha(c) == 0x80, "argb packing");
+        check(Colors.argb(300, 0xFFFFFF) == 0xFFFFFFFF, "alpha clamped");
+        check(Colors.hex(0xFF1E1E1E).equals("#1e1e1e") && Colors.hex(c).equals("#80123456"), "hex out");
+        check(Colors.parse(Colors.hex(c), 0) == c
+                && Colors.parse("e03131", 0) == 0xFFE03131 && Colors.parse("zz", 7) == 7, "hex in");
     }
 
     private static void codec() {

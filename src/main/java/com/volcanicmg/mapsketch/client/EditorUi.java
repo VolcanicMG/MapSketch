@@ -19,8 +19,8 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class EditorUi {
     private static final int BG = 0xE0FFFFFF, BORDER = 0xFF9AA0A6, ACTIVE = 0xFFC9D7FF, ACCENT = 0xFF4C6EF5, TEXT = 0xFF1E1E1E;
-    private static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
-    private static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
+    static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
+    static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
     private static final String[] TOOL_GLYPHS = {"✋", "↖", "□", "◇", "○", "→", "—", "✎", "A", "⌫", "✦"};
 
     private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip) {
@@ -32,8 +32,9 @@ public final class EditorUi {
     private static final List<Btn> buttons = new ArrayList<>();
     private static int panelX, panelY, panelW, panelH, sliderX, sliderY, sliderW;
     private static boolean sliderDrag;
-    private static String hexTarget; // "stroke" or "fill" while typing a hex colour
-    private static StringBuilder hex = new StringBuilder();
+    private static int screenH;
+    // Current-colour chips {x, y, w, h, argb}: drawn over a checkerboard, they open the colour picker.
+    private static final List<int[]> chips = new ArrayList<>();
 
     private EditorUi() {
     }
@@ -84,7 +85,7 @@ public final class EditorUi {
             buttons.add(new Btn(x, yy, sw, sw, "", st.stroke == c, c, () -> apply(s -> s.stroke = c, e -> e.stroke = c), hexOf(c)));
             x += sw + gap;
         }
-        hexField(x, yy, "stroke", st.stroke);
+        chip(x, yy, ColorPicker.Target.STROKE, st.stroke);
         y += row;
         // Background
         label(x0, y, "background");
@@ -96,7 +97,7 @@ public final class EditorUi {
                     c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
             x += sw + gap;
         }
-        hexField(x, yy, "fill", st.fill);
+        chip(x, yy, ColorPicker.Target.FILL, st.fill);
         y += row;
         y = options(x0, y, "fill", new String[]{"∅", "▧", "▦", "■"}, st.fillStyle.ordinal(), i -> {
             Element.FillStyle f = Element.FillStyle.values()[i];
@@ -206,24 +207,28 @@ public final class EditorUi {
         return y + u(10) + h + u(2);
     }
 
-    private static void hexField(int x, int y, String target, int color) {
-        boolean typing = target.equals(hexTarget);
-        String text = typing ? "#" + hex + (System.currentTimeMillis() / 400 % 2 == 0 ? "_" : "") : "#";
-        buttons.add(new Btn(x, y, panelW - u(4) - (x - panelX), u(14), text, typing, 0, () -> {
-            hexTarget = target;
-            hex = new StringBuilder(hexOf(color).substring(1));
-        }, Component.translatable("mapsketch.ui.hex").getString()));
+    /** The current colour; clicking it opens (or closes) the picker beside the panel. */
+    private static void chip(int x, int y, ColorPicker.Target target, int color) {
+        int w = panelW - u(4) - (x - panelX), h = u(14);
+        chips.add(new int[]{x, y, w, h, color});
+        buttons.add(new Btn(x, y, w, h, "", ColorPicker.target() == target, 0, () -> {
+            if (ColorPicker.target() == target) ColorPicker.close(true);
+            else ColorPicker.open(target, panelX + panelW + u(4), y, Minecraft.getInstance().getWindow().getGuiScaledWidth(), screenH);
+        }, Component.translatable("mapsketch.ui.pick_color").getString()));
     }
 
     private static String hexOf(int c) {
-        return (c >>> 24) == 0xFF ? String.format("#%06x", c & 0xFFFFFF) : String.format("#%08x", c);
+        return com.volcanicmg.mapsketch.model.Colors.hex(c);
     }
 
     // ---- input ----
 
     static boolean mousePressed(double gx, double gy, int button) {
+        // The picker eats clicks over it; a click elsewhere closes it (kept) and is consumed, except middle (pan).
+        if (ColorPicker.open() && (ColorPicker.over(gx, gy) || !over(gx, gy) || button != 0))
+            return ColorPicker.mousePressed(gx, gy, button);
+        if (ColorPicker.open() && button == 0 && !chipHit(gx, gy)) ColorPicker.close(true);
         if (button != 0) return over(gx, gy);
-        if (hexTarget != null) applyHex();
         if (panelW > 0 && gx >= sliderX && gx < sliderX + sliderW && gy >= sliderY && gy < sliderY + u(10)) {
             sliderDrag = true;
             slide(gx);
@@ -237,20 +242,28 @@ public final class EditorUi {
         return over(gx, gy);
     }
 
-    /** @return true if the point is on our toolbar or panel */
+    private static boolean chipHit(double gx, double gy) {
+        for (int[] c : chips) if (gx >= c[0] && gx < c[0] + c[2] && gy >= c[1] && gy < c[1] + c[3]) return true;
+        return false;
+    }
+
+    /** @return true if the point is on our toolbar, panel or colour picker */
     public static boolean over(double gx, double gy) {
+        if (ColorPicker.over(gx, gy)) return true;
         if (panelW > 0 && gx >= panelX && gx < panelX + panelW && gy >= panelY && gy < panelY + panelH) return true;
         for (Btn b : buttons) if (b.hit(gx, gy)) return true;
         return false;
     }
 
     static boolean mouseDragged(double gx, double gy) {
+        if (ColorPicker.mouseDragged(gx, gy)) return true;
         if (!sliderDrag) return false;
         slide(gx);
         return true;
     }
 
-    static boolean mouseReleased() {
+    static boolean mouseReleased(double gx, double gy) {
+        if (ColorPicker.mouseReleased(gx, gy)) return true;
         if (!sliderDrag) return false;
         sliderDrag = false;
         int o = Editor.style.opacity;
@@ -263,32 +276,16 @@ public final class EditorUi {
     }
 
     static boolean keyPressed(int key) {
-        if (hexTarget == null) return false;
-        switch (key) {
-            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> applyHex();
-            case GLFW.GLFW_KEY_ESCAPE -> hexTarget = null;
-            case GLFW.GLFW_KEY_BACKSPACE -> {
-                if (!hex.isEmpty()) hex.setLength(hex.length() - 1);
-            }
-            default -> {
-            }
-        }
-        return true;
+        return ColorPicker.keyPressed(key);
     }
 
     static boolean charTyped(char c) {
-        if (hexTarget == null) return false;
-        if (Character.digit(c, 16) >= 0 && hex.length() < 8) hex.append(Character.toLowerCase(c));
-        return true;
+        return ColorPicker.charTyped(c);
     }
 
-    private static void applyHex() {
-        String target = hexTarget;
-        hexTarget = null;
-        int fallback = target.equals("stroke") ? Editor.style.stroke : Editor.style.fill;
-        int c = Config.parseColor(hex.toString(), fallback);
-        if (target.equals("stroke")) apply(s -> s.stroke = c, e -> e.stroke = c);
-        else apply(s -> s.fill = c, e -> e.fill = c);
+    /** The map closed or draw mode ended: a picker session still open is kept. */
+    static void closePicker() {
+        ColorPicker.close(true);
     }
 
     // ---- rendering ----
@@ -297,7 +294,11 @@ public final class EditorUi {
     public static void render(GuiGraphics g, MapView v, int mouseX, int mouseY, int screenW) {
         labels.clear();
         labelKeys.clear();
+        chips.clear();
+        screenH = (int) (v.winH() / v.guiScale());
         layout(screenW);
+        // The picker belongs to the panel: if the panel went away (selection/tool change), keep and close it.
+        if (panelW == 0) ColorPicker.close(true);
         if (!Config.ENABLED.get()) return;
         Font font = Minecraft.getInstance().font;
         others(g, v);
@@ -332,6 +333,12 @@ public final class EditorUi {
             }
             if (b.hit(mouseX, mouseY)) hover = b;
         }
+        for (int[] c : chips) {
+            ColorPicker.checker(g, c[0] + 1, c[1] + 1, c[2] - 2, c[3] - 2);
+            g.fill(c[0] + 1, c[1] + 1, c[0] + c[2] - 1, c[1] + c[3] - 1, c[4]);
+        }
+        ColorPicker.render(g);
+        if (ColorPicker.over(mouseX, mouseY)) hover = null;
         if (hover != null && !hover.tip().isEmpty()) g.renderTooltip(font, Component.literal(hover.tip()), mouseX, mouseY + 12);
     }
 

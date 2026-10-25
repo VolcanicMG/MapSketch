@@ -63,12 +63,6 @@ public final class Config {
 
     /** @return ARGB from {@code #RRGGBB} / {@code #AARRGGBB}, or {@code fallback} */
     public static int parseColor(String s, int fallback) {
-        try {
-            String hex = s.startsWith("#") ? s.substring(1) : s;
-            if (hex.length() == 6) return 0xFF000000 | Integer.parseUnsignedInt(hex, 16);
-            if (hex.length() == 8) return Integer.parseUnsignedInt(hex, 16);
-        } catch (NumberFormatException ignored) {
-        }
-        return fallback;
+        return com.volcanicmg.mapsketch.model.Colors.parse(s, fallback);
     }
 }

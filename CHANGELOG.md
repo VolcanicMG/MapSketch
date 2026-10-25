@@ -4,6 +4,8 @@
 
 First release.
 
+- Colour picker for stroke and background: saturation/value square, hue and opacity bars, old/new preview,
+  palette, 8 recent colours, hex field. Live preview on the selection; kept as one edit and one undo step.
 - Middle-mouse drag pans the world map with any tool (and outside draw mode). New shapes default to the
   "architect" sloppiness (no wobble).
 

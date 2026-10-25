@@ -38,9 +38,14 @@ mode off, Xaero behaves exactly as normal.
 `Ctrl+A` select all, `Ctrl+G` / `Ctrl+Shift+G` group/ungroup, `Ctrl+]` / `Ctrl+[` forward/backward (with shift: to
 front/back), `Delete` delete, arrow keys nudge. Arrows dropped on a shape bind to it and follow it.
 
-The panel on the left sets the style of the selection and of the next shape: stroke and background colour (or a
-hex code), fill, stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can
-see it, layers, duplicate/delete/group/lock.
+The panel on the left sets the style of the selection and of the next shape: stroke and background colour, fill,
+stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can see it, layers,
+duplicate/delete/group/lock.
+
+Colours: click a palette swatch, or the current-colour chip at the end of the row to open the colour picker:
+saturation/value square, hue bar, opacity bar, old/new preview (click the old half to go back), the palette (the
+background palette includes transparent), your last 8 colours and a hex field. Changes show live on the selection;
+Enter or a click outside keeps them as one edit (one undo step), Esc puts the old colour back.
 
 While draw mode is on, Xaero's right-click menu and waypoint list clicks are off; switch to Hand or leave draw mode
 to use them.
