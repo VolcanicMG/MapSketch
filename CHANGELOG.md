@@ -12,17 +12,17 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
-- Toolbar and panel icons are Excalidraw's own smooth line icons (MIT; a few from Tabler Icons, MIT), rasterized
-  at build time (`./gradlew iconAtlas`, a small SVG path rasterizer) into one white alpha atlas drawn with linear
-  filtering and mipmaps, tinted dark normally and accent-blue when selected, at 65% of the button. Text sizes show
-  S / M / L / XL; the stamp picker's clear and page buttons use the same icons. `./gradlew iconSheet` renders a
-  contact sheet. Tooltips on every button; start arrowheads are mirrored.
-- Properties panel layout pass, Excalidraw-like: section labels in one size and colour, equal-width buttons per
-  row with one height and spacing, selected = light accent background + accent border, hover and disabled states,
-  colour rows as swatches plus the current-colour chip. "Visible to" is text (Only me / Team / Everyone); Team is
-  disabled with a tooltip when the server has no FTB Teams. The panel sits below the toolbar and scrolls with the
-  mouse wheel when taller than the screen (the wheel over it never zooms the map). `./gradlew panelPreview` renders
-  an offline mock of the toolbar and panel at UI scale 1 and 2.
+- Vanilla-styled UI: toolbar, properties panel, colour picker and stamp picker use inventory-style panels, the
+  vanilla button / slider / scroller / text-field sprites and the Minecraft font (#404040 labels). Icons are 16x16
+  pixel art at 1 texel = 1 GUI pixel: pixel versions of Excalidraw's icons (MIT; a few from Tabler Icons, MIT) with
+  1 px lines. Buttons: vanilla sprite with dark ink, highlighted sprite on hover, a selected toggle is pressed in like
+  an inventory slot with white ink, disabled is the greyed sprite. Stamp cells are inventory slots. Opacity is a
+  vanilla slider ("Opacity: 100%"). The `uiScale` option is removed: everything is whole GUI pixels and follows
+  Minecraft's GUI scale. `./gradlew iconSheet` / `panelPreview` render previews with the real vanilla assets.
+- Properties panel layout (Excalidraw's structure): labelled sections, equal-width buttons per row, swatches plus the
+  current-colour chip. "Visible to" is text (Only me / Team / Everyone); Team is disabled with a tooltip when the
+  server has no FTB Teams. The panel sits below the toolbar and scrolls (vanilla scrollbar) with the mouse wheel when
+  taller than the screen; the wheel over it never zooms the map. Text sizes show S / M / L / XL.
 - Text background: text can have a padded background box (colour from the panel's Text background row, none or
   solid; round or sharp edges; follows opacity and rotation; included in selection and hit-testing). Default is no
   box.

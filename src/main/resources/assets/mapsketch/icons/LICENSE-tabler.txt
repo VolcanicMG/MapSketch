@@ -1,6 +1,6 @@
 svg/stamp.svg, svg/chevron_up.svg and svg/chevron_down.svg are from Tabler Icons,
 https://github.com/tabler/tabler-icons, tag v3.49.0 (commit bbed884d15354b5cebf2493371f20dc2d5e83eaf),
-icons/outline/{rubber-stamp,chevron-up,chevron-down}.svg (stroke width 2 -> 1.5). Licence:
+icons/outline/{rubber-stamp,chevron-up,chevron-down}.svg (stroke width 2 -> 1.5); the pixel icons in render/UiIconArt.java derive from them. Licence:
 
 MIT License
 

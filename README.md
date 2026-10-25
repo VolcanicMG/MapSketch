@@ -110,14 +110,14 @@ scale.
 ## Building
 
 `./gradlew build` (needs the exact Xaero, xaerolib, FTB Teams and Architectury jars in the gitignored `libs/`, see
-`build.gradle`). `check` runs `selfCheck` (model, rules, geometry, icon atlas) and `syncSim` (two-client multiplayer
-race simulation of the server logic). After editing an icon in `assets/mapsketch/icons/svg/`, run
-`./gradlew iconAtlas` to regenerate the committed atlas; `selfCheck` fails while it is stale. `./gradlew iconSheet` and
-`./gradlew panelPreview` render review PNGs of the icons and the panel. Design notes:
+`build.gradle`). `check` runs `selfCheck` (model, rules, geometry, pixel icons) and `syncSim` (two-client multiplayer
+race simulation of the server logic). `./gradlew iconSheet` and `./gradlew panelPreview` render review PNGs of the
+icons and the panel with the real vanilla font and widget sprites, read at run time from the Minecraft 1.21.1 client
+jar in the Gradle cache (`-DmcClientJar=...` to point elsewhere; nothing from it is committed). Design notes:
 [DESIGN.md](DESIGN.md).
 
 ## License
 
-MIT. UI icons are from [Excalidraw](https://github.com/excalidraw/excalidraw) (MIT, v0.18.1) and
+MIT. UI icons are pixel versions of icons from [Excalidraw](https://github.com/excalidraw/excalidraw) (MIT, v0.18.1) and
 [Tabler Icons](https://github.com/tabler/tabler-icons) (MIT, v3.49.0); see
 `src/main/resources/assets/mapsketch/icons/LICENSE-excalidraw.txt` and `LICENSE-tabler.txt`.

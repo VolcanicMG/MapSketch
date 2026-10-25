@@ -13,7 +13,7 @@ Not a raster paint tool: every drawing is a vector element that can be selected,
 | Package | Minecraft? | What |
 |---|---|---|
 | `model` | no | `Element`, `ElementCodec` (one byte encoding for wire and disk), `Rules`, `Geometry`, `FracIndex` |
-| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `IconAtlas` (UI icon atlas layout), `PanelLayout` (panel/toolbar geometry and colours) |
+| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `UiIconArt` (16x16 pixel UI icons), `PanelLayout` (panel/toolbar geometry and colours) |
 | `sync` | no | `SyncServer` (the server state machine), `ElementStore`, `Live`, `Outbox`, `TokenBucket` |
 | `net` | yes | payloads |
 | `server` | yes | `SketchServer` adapter, `SketchData` (SavedData), `SketchCommands`, `FtbTeamsCompat` |
@@ -186,10 +186,13 @@ covered by `SelfCheck` / the comparator).
   button), selection frames, handles, remote cursors, lease outlines, toasts. Rebuilt from state every frame. Panel
   rows come from the pure `PanelLayout`, which the offline `PanelPreview` (`./gradlew panelPreview`) also uses; the
   panel is clipped (scissor) to the screen height and scrolls with the wheel.
-- `UiIcons`: toolbar/panel icons from `textures/gui/icons.png`, a white alpha atlas (64 px cells, 4 px margin)
-  rasterized at build time from `icons/svg/*.svg` (Excalidraw/Tabler line icons) by `IconAtlasGen` in test sources
-  (`./gradlew iconAtlas`; `selfCheck` re-rasterizes and fails if the committed atlas is stale). The client never
-  touches AWT: it uploads the PNG with three box-filtered mip levels, samples it linearly and tints by vertex colour.
+- Vanilla look (`VanillaUi`): inventory-style panels (#C6C6C6, white / #555555 bevel, black outline), the vanilla
+  `widget/button`, `slider`, `scroller` and `text_field` sprites via `blitSprite`, inventory-slot insets for selected
+  toggles and stamp cells, labels in the vanilla font (#404040, no shadow). Everything is whole GUI pixels; there is no
+  own UI scale, Minecraft's GUI scale applies. Sprites draw immediately while fills batch, so sprite helpers flush first.
+- `UiIcons`: the `UiIconArt` 16x16 pixel icons (pixel versions of the Excalidraw/Tabler SVGs kept in `icons/svg`,
+  1 px lines, 45° or axis-aligned), drawn as fills at 1 texel = 1 GUI pixel. `./gradlew iconDraft` prints no-AA
+  16x16 drafts of the SVGs as a starting point for hand edits.
 - `Tessellator` (pure): thick lines = per-segment quads with mitred joins, round discs only at ends and sharp
   (over 60°) corners; dashes/dots by arc length;
   hachure/cross-hatch = parallel lines at -41°/49° clipped to the convex outline; solid fill = fan. `Rough`: seeded
@@ -227,7 +230,7 @@ and disables that layer for the session. The safe-mode (non-FBO) minimap is not 
 Server: `defaultVisibility` (AUTO = TEAM with FTB Teams, else PUBLIC), `teamCanEdit` (true), `shareWithAllies`
 (true), `maxPointsPerElement` (2000), `maxElementsPerPlayer` (2000), `maxElementsPerDimension` (20000),
 `maxTextLength` (500), `editKBps` (256, also the live budget). Client: `enabled`, `showOnMinimap`,
-`showOthersCursors`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`, `uiScale`.
+`showOthersCursors`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`.
 
 Commands (op level 2): `/mapsketch clear player <p> | dimension <d> | all`, `/mapsketch release <player> | all`,
 `/mapsketch stats`.

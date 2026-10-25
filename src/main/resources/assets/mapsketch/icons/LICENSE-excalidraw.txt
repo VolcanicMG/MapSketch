@@ -1,4 +1,4 @@
-The SVG icons in svg/ (and their rasterization in textures/gui/icons.png) are taken or adapted from
+The SVG icons in svg/ (and the pixel icons derived from them in render/UiIconArt.java) are taken or adapted from
 Excalidraw, https://github.com/excalidraw/excalidraw, tag v0.18.1 (commit a2ec2889babf7d2295469c6d90ebe77fae57df84),
 file packages/excalidraw/components/icons.tsx. Each SVG names its source icon. Licence:
 

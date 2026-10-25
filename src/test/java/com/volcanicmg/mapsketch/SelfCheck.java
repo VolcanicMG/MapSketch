@@ -8,7 +8,7 @@ import com.volcanicmg.mapsketch.model.FracIndex;
 import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.model.Rules;
 import com.volcanicmg.mapsketch.render.Rough;
-import com.volcanicmg.mapsketch.render.IconAtlas;
+import com.volcanicmg.mapsketch.render.UiIconArt;
 import com.volcanicmg.mapsketch.render.Tessellator;
 import java.util.Arrays;
 import java.util.Random;
@@ -485,18 +485,33 @@ public final class SelfCheck {
     }
 
     /**
-     * The UI icon atlas: up to date with icons/svg, every icon id the client names is in it, and each cell has ink
-     * that stays clear of a 2 texel margin (no bleed between cells or mip levels).
+     * The pixel UI icons: 16x16 grids of known chars, ink inside the 2 px margin (12x12 content), not empty, every id the
+     * client names exists, and 1 px strokes: no 2x2 solid block except in the icons that Excalidraw fills.
      */
     private static void uiIcons() throws Exception {
-        String res = "src/main/resources/assets/mapsketch/";
-        java.util.Map<String, IconAtlas.Icon> icons = IconAtlas.parse(java.nio.file.Files.readAllLines(java.nio.file.Path.of(res + "icons/atlas.txt")));
-        java.awt.image.BufferedImage png = javax.imageio.ImageIO.read(new java.io.File(res + "textures/gui/icons.png"));
-        StringBuilder manifest = new StringBuilder();
-        java.awt.image.BufferedImage fresh = IconAtlasGen.build(new java.io.File(res + "icons/svg"), manifest);
-        check(manifest.toString().equals(String.join("\n", java.nio.file.Files.readAllLines(java.nio.file.Path.of(res + "icons/atlas.txt"))) + "\n")
-                && java.util.Arrays.equals(png.getRGB(0, 0, png.getWidth(), png.getHeight(), null, 0, png.getWidth()),
-                fresh.getRGB(0, 0, fresh.getWidth(), fresh.getHeight(), null, 0, fresh.getWidth())), "icon atlas up to date (./gradlew iconAtlas)");
+        java.util.Set<String> filled = java.util.Set.of("fill_solid", "head_triangle", "head_dot", "group", "ungroup",
+                "width_bold", "width_extra");
+        for (String n : UiIconArt.names()) {
+            String[] g = UiIconArt.grid(n);
+            check(g.length == 16, "16 rows: " + n);
+            int ink = 0;
+            for (int y = 0; y < 16; y++) {
+                check(g[y].length() == 16 && g[y].matches("[.#]+"), "16 known chars: " + n + " row " + y);
+                for (int x = 0; x < 16; x++)
+                    if (g[y].charAt(x) == '#') {
+                        ink++;
+                        check(x >= 2 && x <= 13 && y >= 2 && y <= 13, "inside the 2 px margin: " + n + " " + x + "," + y);
+                    }
+            }
+            check(ink >= 4, "not empty: " + n);
+            if (filled.contains(n)) continue;
+            for (int y = 0; y < 15; y++)
+                for (int x = 0; x < 15; x++)
+                    check(!(UiIconArt.ink(n, x, y) && UiIconArt.ink(n, x + 1, y) && UiIconArt.ink(n, x, y + 1) && UiIconArt.ink(n, x + 1, y + 1)),
+                            "1 px strokes (no 2x2 block): " + n + " at " + x + "," + y);
+        }
+        // Mirroring (start arrowheads) flips columns.
+        check(UiIconArt.ink("head_bar@m", 15 - 13, 7) == UiIconArt.ink("head_bar", 13, 7) && UiIconArt.has("head_dot@m"), "mirrored icons");
         // Ids the client draws: "#id" button labels and UiIcons.draw(g, "id", ...) calls.
         java.util.regex.Pattern ref = java.util.regex.Pattern.compile("\"#([a-z0-9_]+)|UiIcons\\.draw\\(g, \"([a-z0-9_]+)\"");
         int refs = 0;
@@ -505,25 +520,12 @@ public final class SelfCheck {
                 java.util.regex.Matcher m = ref.matcher(java.nio.file.Files.readString(f));
                 while (m.find()) {
                     String id = m.group(1) != null ? m.group(1) : m.group(2);
-                    check(icons.containsKey(id), "icon in atlas: " + id + " (" + f.getFileName() + ")");
+                    check(UiIconArt.has(id), "icon exists: " + id + " (" + f.getFileName() + ")");
                     refs++;
                 }
             }
         }
         check(refs > 40, "icon references found: " + refs);
-        int c = IconAtlas.CELL, m = 2;
-        for (var en : icons.entrySet()) {
-            int ox = en.getValue().cellX(), oy = en.getValue().cellY(), ink = 0, edge = 0;
-            for (int y = 0; y < c; y++)
-                for (int x = 0; x < c; x++) {
-                    int a = png.getRGB(ox + x, oy + y) >>> 24;
-                    if (a == 0) continue;
-                    if (x < m || y < m || x >= c - m || y >= c - m) edge++;
-                    else if (a > 32) ink++;
-                }
-            check(ink > 40, "icon has ink: " + en.getKey());
-            check(edge == 0, "icon inside its cell margin: " + en.getKey());
-        }
     }
 
     private static int lum(int rgb) {

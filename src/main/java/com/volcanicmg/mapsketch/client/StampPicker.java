@@ -1,6 +1,5 @@
 package com.volcanicmg.mapsketch.client;
 
-import com.volcanicmg.mapsketch.Config;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.Rules;
 import com.volcanicmg.mapsketch.render.PixelArt;
@@ -25,7 +24,8 @@ import org.lwjgl.glfw.GLFW;
 final class StampPicker {
     private enum Tab { SYMBOLS, DECOS, ITEMS }
 
-    private static final int BG = 0xFFF8F9FA, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5, COLS = 9, LINES = 7;
+    // Vanilla inventory metrics: 7 px padding, 18 px slots, 9 columns (176 wide like the inventory).
+    private static final int PAD = 7, FIELD = 16, TAB = 20, NAV = 16, COLS = 9, LINES = 7;
     private static final List<String> recent = new ArrayList<>();
     private static boolean open, forTool;
     private static String search = "", builtFor;
@@ -43,9 +43,6 @@ final class StampPicker {
     private StampPicker() {
     }
 
-    private static int u(double px) {
-        return (int) Math.round(px * Config.UI_SCALE.get());
-    }
 
     static boolean open() {
         return open;
@@ -65,15 +62,15 @@ final class StampPicker {
     }
 
     private static int cell() {
-        return u(18);
+        return 18;
     }
 
     private static int width() {
-        return u(8) + COLS * cell();
+        return PAD * 2 + COLS * cell();
     }
 
     private static int height() {
-        return u(8) + u(14) + u(4) + u(14) + u(4) + u(10) + cell() + u(4) + LINES * cell() + u(14);
+        return PAD + FIELD + 3 + TAB + 3 + 10 + cell() + 4 + LINES * cell() + 3 + NAV + PAD;
     }
 
     static boolean over(double gx, double gy) {
@@ -296,69 +293,68 @@ final class StampPicker {
         if (!open) return;
         build();
         Font font = Minecraft.getInstance().font;
-        int w = width(), h = height(), c = cell(), pad = u(4);
+        int w = width(), h = height(), c = cell(), pad = PAD;
         x = Math.max(2, Math.min(screenW / 2 - w / 2, screenW - w - 2));
-        y = Math.max(2, Math.min(24 + u(22), screenH - h - 2));
+        y = Math.max(2, Math.min(24 + 26, screenH - h - 2));
         String hover = null;
         g.pose().pushPose();
         try {
             g.pose().translate(0, 0, 300);
-            g.fill(x, y, x + w, y + h, BG);
-            outline(g, x, y, w, h, BORDER);
-            // Search field with a clear button.
-            int yy = y + pad, fh = u(14);
-            g.fill(x + pad, yy, x + w - pad, yy + fh, 0xFFFFFFFF);
-            outline(g, x + pad, yy, w - pad * 2, fh, ACCENT);
+            VanillaUi.panel(g, x, y, w, h);
+            // Search field (always focused) with a clear button.
+            int yy = y + pad, fh = FIELD;
+            VanillaUi.textField(g, x + pad, yy, w - pad * 2, fh);
             boolean empty = search.isEmpty();
             String caret = System.currentTimeMillis() / 400 % 2 == 0 ? "_" : "";
-            if (all && !empty) g.fill(x + pad + 2, yy + 2, x + pad + 4 + font.width(search), yy + fh - 2, 0xFFC9D7FF);
-            g.drawString(font, empty ? caret + tr("stamp_search") : search + caret, x + pad + 3, yy + (fh - 8) / 2,
-                    empty ? 0xFF9AA0A6 : 0xFF1E1E1E, false);
+            if (all && !empty) g.fill(x + pad + 3, yy + 3, x + pad + 5 + font.width(search), yy + fh - 3, 0xFF0000FF);
+            g.drawString(font, empty ? caret + tr("stamp_search") : search + caret, x + pad + 4, yy + (fh - 8) / 2,
+                    empty ? 0xFF707070 : 0xFFE0E0E0, true);
             clearBox = empty ? null : new int[]{x + w - pad - fh, yy, fh, fh};
-            if (clearBox != null) {
-                g.flush();
-                UiIcons.draw(g, "close", clearBox[0], yy, fh, fh, 0xFF5F6368);
-            }
-            yy += fh + u(4);
-            // Tabs (greyed while a search shows everything).
-            int tw = (w - pad * 2 - u(4)) / 3;
+            if (clearBox != null) UiIcons.draw(g, "close", clearBox[0], yy, fh, fh, 0xFFE0E0E0);
+            yy += fh + 3;
+            // Tabs as vanilla buttons; the open one is pressed in (greyed while a search shows everything).
+            int tw = (w - pad * 2 - 4) / 3;
             String[] names = {tr("stamp_tab_symbols"), tr("stamp_tab_decos"), tr("stamp_tab_items")};
             for (int t = 0; t < 3; t++) {
-                int tx = x + pad + t * (tw + u(2));
-                tabBoxes[t] = new int[]{tx, yy, tw, fh};
-                boolean on = empty && tab.ordinal() == t;
-                if (on) g.fill(tx, yy, tx + tw, yy + fh, 0xFFC9D7FF);
-                outline(g, tx, yy, tw, fh, on ? ACCENT : BORDER);
-                g.drawString(font, names[t], tx + (tw - font.width(names[t])) / 2, yy + (fh - 8) / 2, empty ? 0xFF1E1E1E : 0xFF9AA0A6, false);
+                int tx = x + pad + t * (tw + 2);
+                tabBoxes[t] = new int[]{tx, yy, tw, TAB};
+                boolean on = empty && tab.ordinal() == t, over = mouseX >= tx && mouseX < tx + tw && mouseY >= yy && mouseY < yy + TAB;
+                VanillaUi.button(g, tx, yy, tw, TAB, on, false, over);
             }
-            yy += fh + u(4);
-            g.drawString(font, tr("stamp_recent"), x + pad, yy + u(1), 0xFF5F6368, false);
-            yy += u(10);
+            for (int t = 0; t < 3; t++) {
+                int[] tb = tabBoxes[t];
+                boolean on = empty && tab.ordinal() == t;
+                g.drawString(font, names[t], tb[0] + (tb[2] - font.width(names[t]) + 1) / 2, yy + (TAB - 8) / 2, VanillaUi.ink(on, false), false);
+            }
+            yy += TAB + 3;
+            g.drawString(font, tr("stamp_recent"), x + pad + 1, yy, 0xFF404040, false);
+            yy += 10;
             hover = row(g, recent, yy, mouseX, mouseY, hover, false);
-            yy += c + u(4);
+            yy += c + 4;
             // Results / tab content, scrolled by lines.
             int bottom = yy + LINES * c;
             for (int l = scroll; l < lines.size() && yy + c <= bottom + 1; l++) {
                 Object line = lines.get(l);
                 if (line instanceof String header) {
-                    g.drawString(font, header, x + pad, yy + u(2), 0xFF5F6368, false);
-                    yy += u(11);
+                    g.drawString(font, header, x + pad + 1, yy + 2, 0xFF404040, false);
+                    yy += 11;
                 } else {
                     @SuppressWarnings("unchecked") List<String> ids = (List<String>) line;
                     hover = row(g, ids, yy, mouseX, mouseY, hover, true);
                     yy += c;
                 }
             }
-            if (results.isEmpty()) g.drawString(font, tr("stamp_none"), x + pad, yy + u(2), 0xFF9AA0A6, false);
-            int py = y + h - u(14);
-            prevBox = new int[]{x + pad, py, u(14), u(12)};
-            nextBox = new int[]{x + w - pad - u(14), py, u(14), u(12)};
+            if (results.isEmpty()) g.drawString(font, tr("stamp_none"), x + pad + 1, yy + 2, 0xFF404040, false);
+            int py = y + h - pad - NAV;
+            prevBox = new int[]{x + pad, py, 20, NAV};
+            nextBox = new int[]{x + w - pad - 20, py, 20, NAV};
             boolean more = scroll + LINES < lines.size();
-            g.flush();
-            UiIcons.draw(g, "chevron_up", prevBox[0], py, prevBox[2], prevBox[3], scroll > 0 ? UiIcons.NORMAL : UiIcons.DISABLED);
-            UiIcons.draw(g, "chevron_down", nextBox[0], py, nextBox[2], nextBox[3], more ? UiIcons.NORMAL : UiIcons.DISABLED);
+            VanillaUi.button(g, prevBox[0], py, 20, NAV, false, scroll == 0, scroll > 0 && hit(prevBox, mouseX, mouseY));
+            VanillaUi.button(g, nextBox[0], py, 20, NAV, false, !more, more && hit(nextBox, mouseX, mouseY));
+            UiIcons.draw(g, "chevron_up", prevBox[0], py, 20, NAV, VanillaUi.ink(false, scroll == 0));
+            UiIcons.draw(g, "chevron_down", nextBox[0], py, 20, NAV, VanillaUi.ink(false, !more));
             String count = results.size() + "";
-            g.drawString(font, count, x + w / 2 - font.width(count) / 2, py + 2, 0xFF5F6368, false);
+            g.drawString(font, count, x + w / 2 - font.width(count) / 2, py + (NAV - 8) / 2, 0xFF404040, false);
         } finally {
             g.pose().popPose();
         }
@@ -372,15 +368,17 @@ final class StampPicker {
 
     /** One row of stamp cells; returns the hovered id (or the previous one). */
     private static String row(GuiGraphics g, List<String> ids, int top, int mouseX, int mouseY, String hover, boolean results) {
-        int c = cell(), x0 = x + u(4);
+        int c = cell(), x0 = x + PAD;
         for (int i = 0; i < Math.min(ids.size(), COLS); i++) {
             int cx = x0 + i * c;
             String id = ids.get(i);
             boolean hl = results && !StampPicker.results.isEmpty() && id.equals(StampPicker.results.get(Math.min(highlight, StampPicker.results.size() - 1)));
-            if (id.equals(Editor.style.stamp)) g.fill(cx, top, cx + c, top + c, 0xFFC9D7FF);
+            // Inventory slots; the current stamp is outlined white, hover / keyboard highlight is vanilla's slot highlight.
+            VanillaUi.slot(g, cx, top, c, c);
+            if (id.equals(Editor.style.stamp)) outline(g, cx + 1, top + 1, c - 2, c - 2, 0xFFFFFFFF);
             boolean over = mouseX >= cx && mouseX < cx + c && mouseY >= top && mouseY < top + c;
-            if (over || hl) outline(g, cx, top, c, c, ACCENT);
             icon(g, id, cx + 1, top + 1, c - 2);
+            if (over || hl) g.fill(cx + 1, top + 1, cx + c - 1, top + c - 1, 0x80FFFFFF);
             cells.add(new int[]{cx, top, c});
             cellIds.add(id);
             if (over) hover = id;

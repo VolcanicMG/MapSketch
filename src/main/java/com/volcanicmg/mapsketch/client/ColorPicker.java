@@ -1,6 +1,5 @@
 package com.volcanicmg.mapsketch.client;
 
-import com.volcanicmg.mapsketch.Config;
 import com.volcanicmg.mapsketch.model.Colors;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +19,8 @@ final class ColorPicker {
 
     private enum Part { NONE, SV, HUE, ALPHA }
 
-    private static final int BG = 0xFFF8F9FA, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5;
+    // Swatch / preview row height and the gap between rows.
+    private static final int ROW = 16, ROW_GAP = 4;
     private static final List<Integer> recent = new ArrayList<>();
 
     private static Target target;
@@ -33,9 +33,6 @@ final class ColorPicker {
     private ColorPicker() {
     }
 
-    private static int u(double px) {
-        return (int) Math.round(px * Config.UI_SCALE.get());
-    }
 
     static boolean open() {
         return target != null;
@@ -120,23 +117,23 @@ final class ColorPicker {
     // ---- layout ----
 
     private static int pad() {
-        return u(4);
+        return 7;
     }
 
     private static int sq() {
-        return u(100);
+        return 100;
     }
 
     private static int bar() {
-        return u(10);
+        return 10;
     }
 
     private static int width() {
-        return pad() * 4 + sq() + bar() * 2;
+        return pad() * 2 + sq() + bar() * 2 + 8;
     }
 
     private static int height() {
-        return pad() * 5 + sq() + u(14) * 3;
+        return rowY(3) - ROW_GAP - y + pad();
     }
 
     private static int[] svBox() {
@@ -144,16 +141,16 @@ final class ColorPicker {
     }
 
     private static int[] hueBox() {
-        return new int[]{x + pad() * 2 + sq(), y + pad(), bar(), sq()};
+        return new int[]{x + pad() + sq() + 4, y + pad(), bar(), sq()};
     }
 
     private static int[] alphaBox() {
-        return new int[]{x + pad() * 3 + sq() + bar(), y + pad(), bar(), sq()};
+        return new int[]{x + pad() + sq() + bar() + 8, y + pad(), bar(), sq()};
     }
 
     /** Old/new preview and hex field row. */
     private static int rowY(int i) {
-        return y + pad() * (2 + i) + sq() + u(14) * i;
+        return y + pad() + sq() + 6 + i * (ROW + ROW_GAP);
     }
 
     private static int[] palette() {
@@ -192,7 +189,7 @@ final class ColorPicker {
     }
 
     private static void clickRows(double gx, double gy) {
-        int cw = u(14), gap = u(2);
+        int cw = ROW, gap = 2;
         // Row 0: old (click = back to it), new, hex field.
         int r0 = rowY(0);
         if (gy >= r0 && gy < r0 + cw) {
@@ -304,55 +301,59 @@ final class ColorPicker {
         try {
             // Above the panel and its labels.
             g.pose().translate(0, 0, 300);
-            g.fill(x, y, x + w, y + hgt, BG);
-            outline(g, x, y, w, hgt, BORDER);
+            VanillaUi.panel(g, x, y, w, hgt);
             int[] b = svBox();
+            inset(g, b);
             for (int i = 0; i < b[2]; i++) {
                 int top = 0xFF000000 | Colors.hsvToRgb(h, i / (float) Math.max(1, b[2] - 1), 1);
                 g.fillGradient(b[0] + i, b[1], b[0] + i + 1, b[1] + b[3], top, 0xFF000000);
             }
-            outline(g, b[0] - 1, b[1] - 1, b[2] + 2, b[3] + 2, BORDER);
             int mx = b[0] + Math.round(s * (b[2] - 1)), my = b[1] + Math.round((1 - v) * (b[3] - 1));
             outline(g, mx - 3, my - 3, 7, 7, 0xFFFFFFFF);
             outline(g, mx - 2, my - 2, 5, 5, 0xFF000000);
             int[] hb = hueBox();
+            inset(g, hb);
             for (int i = 0; i < hb[3]; i++)
                 g.fill(hb[0], hb[1] + i, hb[0] + hb[2], hb[1] + i + 1, 0xFF000000 | Colors.hsvToRgb(i / (float) hb[3], 1, 1));
             marker(g, hb, Math.round(h * (hb[3] - 1)));
             int[] ab = alphaBox();
+            inset(g, ab);
             checker(g, ab[0], ab[1], ab[2], ab[3]);
             int rgb = Colors.hsvToRgb(h, s, v);
             g.fillGradient(ab[0], ab[1], ab[0] + ab[2], ab[1] + ab[3], 0xFF000000 | rgb, rgb);
             marker(g, ab, Math.round((1 - alpha / 255f) * (ab[3] - 1)));
-            int cw = u(14), gap = u(2), r0 = rowY(0);
+            int cw = ROW, gap = 2, r0 = rowY(0);
             // Old | new preview, then the hex field.
-            checker(g, x + pad(), r0, cw * 4, cw);
-            g.fill(x + pad(), r0, x + pad() + cw * 2, r0 + cw, old);
-            g.fill(x + pad() + cw * 2, r0, x + pad() + cw * 4, r0 + cw, current());
-            outline(g, x + pad(), r0, cw * 4, cw, BORDER);
-            int hx = x + pad() + cw * 4 + gap, hw = x + w - pad() - hx;
+            g.fill(x + pad(), r0, x + pad() + cw * 4, r0 + cw, 0xFF373737);
+            checker(g, x + pad() + 1, r0 + 1, cw * 4 - 2, cw - 2);
+            g.fill(x + pad() + 1, r0 + 1, x + pad() + cw * 2, r0 + cw - 1, old);
+            g.fill(x + pad() + cw * 2, r0 + 1, x + pad() + cw * 4 - 1, r0 + cw - 1, current());
+            int hx = x + pad() + cw * 4 + gap * 2, hw = x + w - pad() - hx;
             boolean typing = hex != null;
-            g.fill(hx, r0, hx + hw, r0 + cw, typing ? 0xFFFFFFFF : 0xFFF1F3F4);
-            outline(g, hx, r0, hw, cw, typing ? ACCENT : BORDER);
+            if (typing) VanillaUi.textField(g, hx, r0, hw, cw);
+            else VanillaUi.slot(g, hx, r0, hw, cw);
             String text = typing ? "#" + hex + (System.currentTimeMillis() / 400 % 2 == 0 ? "_" : "") : Colors.hex(current());
-            g.drawString(font, text, hx + 2, r0 + (cw - 8) / 2, 0xFF1E1E1E, false);
+            g.drawString(font, text, hx + 4, r0 + (cw - 8) / 2, typing ? 0xFFE0E0E0 : 0xFFFFFFFF, typing);
             swatches(g, palette(), rowY(1), cw, gap);
             int[] rec = recent.stream().mapToInt(Integer::intValue).toArray();
             swatches(g, rec, rowY(2), cw, gap);
             if (rec.length == 0) g.drawString(font, net.minecraft.network.chat.Component.translatable("mapsketch.ui.no_recent"),
-                    x + pad(), rowY(2) + (cw - 8) / 2, 0xFF9AA0A6, false);
+                    x + pad() + 1, rowY(2) + (cw - 8) / 2, 0xFF404040, false);
         } finally {
             g.pose().popPose();
         }
+    }
+
+    /** A 1 px slot-style inset frame around a gradient box. */
+    private static void inset(GuiGraphics g, int[] b) {
+        VanillaUi.slot(g, b[0] - 1, b[1] - 1, b[2] + 2, b[3] + 2);
     }
 
     private static void swatches(GuiGraphics g, int[] colors, int ry, int cw, int gap) {
         for (int i = 0; i < colors.length; i++) {
             int sx = x + pad() + i * (cw + gap);
             if (sx + cw > x + width() - pad()) break;
-            checker(g, sx, ry, cw, cw);
-            g.fill(sx, ry, sx + cw, ry + cw, colors[i]);
-            outline(g, sx, ry, cw, cw, colors[i] == current() ? ACCENT : BORDER);
+            VanillaUi.swatch(g, sx, ry, cw, cw, colors[i], colors[i] == current());
         }
     }
 
@@ -361,13 +362,9 @@ final class ColorPicker {
         g.fill(b[0] - 1, b[1] + off, b[0] + b[2] + 1, b[1] + off + 1, 0xFFFFFFFF);
     }
 
-    /** Light/dark checkerboard behind translucent colours. */
+    /** Light/grey checkerboard behind translucent colours. */
     static void checker(GuiGraphics g, int x0, int y0, int w, int h) {
-        int c = Math.max(2, u(4));
-        for (int yy = 0; yy < h; yy += c)
-            for (int xx = 0; xx < w; xx += c)
-                g.fill(x0 + xx, y0 + yy, x0 + Math.min(w, xx + c), y0 + Math.min(h, yy + c),
-                        (xx / c + yy / c) % 2 == 0 ? 0xFFFFFFFF : 0xFFCCCCCC);
+        VanillaUi.checker(g, x0, y0, w, h);
     }
 
     private static void outline(GuiGraphics g, int x0, int y0, int w, int h, int c) {

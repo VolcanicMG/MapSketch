@@ -26,7 +26,6 @@ public final class Config {
     public static final ModConfigSpec.ConfigValue<String> DEFAULT_FILL;
     public static final ModConfigSpec.EnumValue<Width> DEFAULT_WIDTH;
     public static final ModConfigSpec.IntValue DEFAULT_ROUGHNESS;
-    public static final ModConfigSpec.DoubleValue UI_SCALE;
 
     static {
         ModConfigSpec.Builder s = new ModConfigSpec.Builder();
@@ -54,7 +53,6 @@ public final class Config {
                 .define("defaultFillColor", "#00000000");
         DEFAULT_WIDTH = c.defineEnum("defaultStrokeWidth", Width.BOLD);
         DEFAULT_ROUGHNESS = c.comment("0 = architect, 1 = artist, 2 = cartoonist.").defineInRange("defaultSloppiness", 0, 0, 2);
-        UI_SCALE = c.comment("Size of the toolbar and properties panel.").defineInRange("uiScale", 1.0, 0.5, 3.0);
         CLIENT_SPEC = c.build();
     }
 
