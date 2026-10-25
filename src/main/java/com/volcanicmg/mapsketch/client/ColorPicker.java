@@ -204,16 +204,16 @@ final class ColorPicker {
     }
 
     static boolean mouseDragged(double gx, double gy) {
-        if (target == null || drag == Part.NONE) return target != null && over(gx, gy);
+        if (target == null || drag == Part.NONE) return false;
         update(gx, gy);
         return true;
     }
 
+    /** @return true only when the press started a drag on the picker */
     static boolean mouseReleased(double gx, double gy) {
-        if (target == null) return false;
         boolean was = drag != Part.NONE;
         drag = Part.NONE;
-        return was || over(gx, gy);
+        return was;
     }
 
     private static void update(double gx, double gy) {

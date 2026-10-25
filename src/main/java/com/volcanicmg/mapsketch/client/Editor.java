@@ -437,6 +437,8 @@ public final class Editor {
      * {@link #endPreview}. Each call starts again from the pre-preview state, so it can run every frame of a drag.
      */
     public static void previewSelection(Consumer<Element> mut) {
+        // Send anything still queued first, so the queue never carries a preview state to the server.
+        if (previewBefore.isEmpty()) ClientStore.flush();
         for (UUID id : selection) {
             Element cur = live(id);
             if (cur == null || !canEdit(cur)) continue;

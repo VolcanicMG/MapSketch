@@ -241,7 +241,15 @@ public final class EditorUi {
 
     // ---- input ----
 
+    // The current press was consumed by our UI: only then are its drags and release ours too.
+    private static boolean uiPress;
+
     static boolean mousePressed(double gx, double gy, int button) {
+        uiPress = pressed(gx, gy, button);
+        return uiPress;
+    }
+
+    private static boolean pressed(double gx, double gy, int button) {
         if (StampPicker.open() && (StampPicker.over(gx, gy) || !over(gx, gy))) return StampPicker.mousePressed(gx, gy, button);
         // The picker eats clicks over it; a click elsewhere closes it (kept) and is consumed, except middle (pan).
         if (ColorPicker.open() && (ColorPicker.over(gx, gy) || !over(gx, gy) || button != 0))
@@ -275,19 +283,26 @@ public final class EditorUi {
     }
 
     static boolean mouseDragged(double gx, double gy) {
-        if (ColorPicker.mouseDragged(gx, gy) || StampPicker.over(gx, gy)) return true;
-        if (!sliderDrag) return false;
-        slide(gx);
-        return true;
+        if (ColorPicker.mouseDragged(gx, gy)) return true;
+        if (sliderDrag) {
+            slide(gx);
+            return true;
+        }
+        return uiPress;
     }
 
+    /** @return true only for the release of a press our UI consumed (never strands Xaero's or the editor's drag) */
     static boolean mouseReleased(double gx, double gy) {
-        if (ColorPicker.mouseReleased(gx, gy) || StampPicker.over(gx, gy)) return true;
-        if (!sliderDrag) return false;
-        sliderDrag = false;
-        int o = Editor.style.opacity;
-        Editor.editSelection(e -> e.opacity = o);
-        return true;
+        boolean owned = uiPress;
+        uiPress = false;
+        if (ColorPicker.mouseReleased(gx, gy)) return true;
+        if (sliderDrag) {
+            sliderDrag = false;
+            int o = Editor.style.opacity;
+            Editor.editSelection(e -> e.opacity = o);
+            return true;
+        }
+        return owned;
     }
 
     private static void slide(double gx) {
