@@ -463,6 +463,21 @@ public final class SelfCheck {
         e.nonce = -3;
         e.baseNonce = 11;
         Element back = ElementCodec.fromBytes(ElementCodec.toBytes(e));
+        // size() must match the real encoding: payload splitting and rate limits rely on it.
+        check(ElementCodec.size(e) == ElementCodec.toBytes(e).length, "size exact: " + ElementCodec.size(e) + " vs " + ElementCodec.toBytes(e).length);
+        Element big = e.copy();
+        big.text = "héllo ☃ \u0000 " + "x".repeat(300);
+        big.stamp = "";
+        big.startBind = A;
+        big.startFixed = new float[]{0.5f, 0.5f};
+        big.groups = new UUID[]{A, B, C};
+        big.pts = new float[200];
+        check(ElementCodec.size(big) == ElementCodec.toBytes(big).length, "size exact with unicode, binds, groups");
+        Element bare = rect(0, 0, 1, 1);
+        bare.owner = null;
+        bare.type = Element.Type.STAMP;
+        bare.stamp = "item:minecraft:diamond";
+        check(ElementCodec.size(bare) == ElementCodec.toBytes(bare).length, "size exact for a stamp without owner");
         check(back.sameContent(e) && back.id.equals(e.id) && back.version == 7 && back.nonce == -3 && back.baseNonce == 11
                 && back.owner.equals(A), "codec round trip");
     }

@@ -137,9 +137,23 @@ public final class ElementCodec {
         }
     }
 
-    /** @return encoded size in bytes, for payload splitting and rate limits */
+    /** @return encoded size in bytes (exact), for payload splitting and rate limits */
     public static int size(Element e) {
-        return 140 + e.pts.length * 4 + e.text.length() * 3 + e.groups.length * 16 + e.dim.length() + e.order.length();
+        // Exactly what write() produces (the self-check compares it with the real encoding).
+        return 118 + e.pts.length * 4 + utfLen(e.dim) + utfLen(e.text) + utfLen(e.stamp) + utfLen(e.order)
+                + (e.startBind != null ? 16 : 0) + (e.endBind != null ? 16 : 0)
+                + (e.startFixed != null ? 8 : 0) + (e.endFixed != null ? 8 : 0)
+                + e.groups.length * 16 + (e.owner != null ? 16 : 0);
+    }
+
+    /** Bytes of {@link DataOutputStream#writeUTF}: 2-byte length plus modified UTF-8. */
+    private static int utfLen(String s) {
+        int n = 2;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            n += c >= 0x0001 && c <= 0x007F ? 1 : c <= 0x07FF ? 2 : 3;
+        }
+        return n;
     }
 
     private static <T> T pick(T[] values, int ordinal) {

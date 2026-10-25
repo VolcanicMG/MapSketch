@@ -7,6 +7,11 @@ First release.
 - Fix: arrows bound to a shape now follow it when it is moved, resized or rotated (the grab's lease request was
   emptied before it was sent), and on arrow-key nudges, in the same undo step; arrows bound at both ends to moved
   shapes aim centre to centre.
+- Review round 4: item stamp ids cached only on hits and registry-checked as live ghosts too, air rejected;
+  small/excess item stamps drawn as batched tiles (at most 200 item models per pass); stamp picker names cached and
+  guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
+  bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
+  exact encoded element size for batching and rate limits.
 - Stamps: a Stamp tool (`S`, `9`) placing item/block icons (any registry item, searchable, paged) or one of 16
   built-in vector symbols tinted with the stroke colour; recent stamps; resize/rotate/move/opacity like other shapes;
   on the World Map and Minimap (a tinted tile if item icons cannot render there). The server validates stamp ids
