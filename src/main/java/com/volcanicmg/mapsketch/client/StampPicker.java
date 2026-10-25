@@ -72,18 +72,40 @@ final class StampPicker {
         return open && gx >= x && gx < x + width() && gy >= y && gy < y + height();
     }
 
+    // Every item id with its lower-cased display name, built once (names need an ItemStack each).
+    private static List<String[]> index;
+    // Item ids whose icon failed to render: drawn as a tile from then on.
+    private static final java.util.Set<String> broken = new java.util.HashSet<>();
+
+    private static List<String[]> index() {
+        if (index != null) return index;
+        List<String[]> out = new ArrayList<>();
+        boolean logged = false;
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (item == Items.AIR) continue;
+            String id = BuiltInRegistries.ITEM.getKey(item).toString(), name = id;
+            try {
+                ItemStack st = new ItemStack(item);
+                if (st.isEmpty()) continue;
+                name = st.getHoverName().getString().toLowerCase(Locale.ROOT);
+            } catch (Throwable t) {
+                // A mod item that cannot even name itself: keep it searchable by id, log once.
+                if (!logged) com.volcanicmg.mapsketch.MapSketch.LOGGER.warn("Stamp picker: cannot name item {}", id, t);
+                logged = true;
+            }
+            out.add(new String[]{id, name});
+        }
+        out.sort(java.util.Comparator.comparing(e -> e[0]));
+        index = out;
+        return index;
+    }
+
     /** All item ids, sorted, matching the search in their id or name. Recomputed only when the search changes. */
     private static List<String> filtered() {
         if (search.equals(filteredFor)) return items;
         String q = search.toLowerCase(Locale.ROOT);
         List<String> out = new ArrayList<>();
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (item == Items.AIR) continue;
-            String id = BuiltInRegistries.ITEM.getKey(item).toString();
-            if (q.isEmpty() || id.contains(q) || new ItemStack(item).getHoverName().getString().toLowerCase(Locale.ROOT).contains(q))
-                out.add(id);
-        }
-        out.sort(null);
+        for (String[] e : index()) if (q.isEmpty() || e[0].contains(q) || e[1].contains(q)) out.add(e[0]);
         items = out;
         filteredFor = search;
         page = 0;
@@ -253,11 +275,18 @@ final class StampPicker {
         }
         ItemStack st = SketchRenderer.stack(id);
         if (st == null) return;
+        if (broken.contains(id)) {
+            g.fill(ix + 2, iy + 2, ix + size - 2, iy + size - 2, 0x80000000 | Editor.style.stroke & 0xFFFFFF);
+            return;
+        }
         g.pose().pushPose();
         try {
             g.pose().translate(ix, iy, 0);
             g.pose().scale(size / 16f, size / 16f, 1);
             g.renderItem(st, 0, 0);
+        } catch (Throwable t) {
+            if (broken.isEmpty()) com.volcanicmg.mapsketch.MapSketch.LOGGER.warn("Stamp picker: item {} cannot render", id, t);
+            broken.add(id);
         } finally {
             g.pose().popPose();
         }
