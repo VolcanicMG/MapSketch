@@ -12,6 +12,9 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Item stamps keep their colours: flat item icons are drawn layer by layer with the game's item tints (spawn eggs,
+  potions, leather armour, tipped arrows, firework stars, maps). The stamp and colour pickers are opaque, and stamp
+  icons are no longer covered by the picker's own background.
 - Stamps redone as pixel art: the symbols are 16x16 Minecraft-style sprites in four tones from the stroke colour
   (same ids, 8 new ones: anchor, arrow_up, campfire, crown, shield, coin, home_base, danger). New `deco:` stamps
   with the vanilla map icons. Every stamp, items included, is now a flat nearest-filtered textured quad on both

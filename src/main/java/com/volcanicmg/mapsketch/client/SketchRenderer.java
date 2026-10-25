@@ -130,6 +130,8 @@ public final class SketchRenderer {
     public static void drawAll(GuiGraphics g, List<Element> list, double camX, double camZ, double pxPerBlock,
                                double[] view, boolean depthOrdered, Set<UUID> faded, Set<UUID> replaced) {
         if (list.isEmpty()) return;
+        // Draw anything GuiGraphics still has batched first, or it would land on top of what we draw directly.
+        g.flush();
         Matrix4f pose = g.pose().last().pose();
         begin(depthOrdered);
         BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
@@ -257,6 +259,8 @@ public final class SketchRenderer {
     /** Draws live elements on top (own shape in progress, other players' ghosts), cached by content. */
     public static void drawLive(GuiGraphics g, Collection<Element> list, double camX, double camZ, double pxPerBlock, float alpha) {
         if (list.isEmpty()) return;
+        // Draw anything GuiGraphics still has batched first (e.g. a popover background), or it lands on top.
+        g.flush();
         Matrix4f pose = g.pose().last().pose();
         begin(false);
         BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
@@ -278,6 +282,7 @@ public final class SketchRenderer {
     /** Thick polyline in world coordinates (laser trails, selection outlines drawn in map space). */
     public static void drawPolyline(GuiGraphics g, float[] worldRel, double width, int argb, int segs) {
         Tessellator.Mesh m = Tessellator.polyline(worldRel, width, argb, segs);
+        g.flush();
         begin(false);
         BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
                 DefaultVertexFormat.POSITION_COLOR);

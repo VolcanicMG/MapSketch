@@ -19,7 +19,7 @@ final class ColorPicker {
 
     private enum Part { NONE, SV, HUE, ALPHA }
 
-    private static final int BG = 0xF0FFFFFF, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5;
+    private static final int BG = 0xFFF8F9FA, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5;
     private static final List<Integer> recent = new ArrayList<>();
 
     private static Target target;

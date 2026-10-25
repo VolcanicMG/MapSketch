@@ -34,7 +34,12 @@ final class StampArt {
 
     static final ResourceLocation SYMBOLS = ResourceLocation.fromNamespaceAndPath(MapSketch.MODID, "stamp_symbols");
     private static final ResourceLocation DECO_ATLAS = ResourceLocation.withDefaultNamespace("textures/atlas/map_decorations.png");
-    private static final Map<String, TextureAtlasSprite> sprites = new HashMap<>();
+    /** One sprite layer of an item or map icon, with its tint (opaque white = untinted). */
+    private record Tinted(TextureAtlasSprite sprite, int argb) {
+    }
+
+    // Per stamp id (bounded by the registries), cleared on resource reload.
+    private static final Map<String, List<Tinted>> sprites = new HashMap<>();
     private static List<String> symbolRows;
     private static boolean failed;
 
@@ -51,10 +56,14 @@ final class StampArt {
         if (failed) return null;
         try {
             if (e.stamp.startsWith("sym:")) return symbol(e.stamp.substring(4), e.stroke, e.opacity);
-            TextureAtlasSprite s = sprite(e.stamp);
-            if (s == null) return null;
-            int a = Tessellator.withOpacity(0xFFFFFFFF, e.opacity);
-            return List.of(new Layer(s.atlasLocation(), s.getU0(), s.getV0(), s.getU1(), s.getV1(), a));
+            List<Tinted> tinted = e.stamp.startsWith("item:") ? itemLayers(e.stamp) : deco(e.stamp);
+            if (tinted == null) return null;
+            List<Layer> out = new ArrayList<>(tinted.size());
+            for (Tinted t : tinted) {
+                TextureAtlasSprite s = t.sprite();
+                out.add(new Layer(s.atlasLocation(), s.getU0(), s.getV0(), s.getU1(), s.getV1(), Tessellator.withOpacity(t.argb(), e.opacity)));
+            }
+            return out;
         } catch (Throwable t) {
             failed = true;
             MapSketch.LOGGER.error("MapSketch cannot texture stamps; drawing tiles instead", t);
@@ -97,38 +106,62 @@ final class StampArt {
         return names;
     }
 
-    /** @return the flat sprite of a {@code deco:} or {@code item:} stamp, or null when missing */
-    private static TextureAtlasSprite sprite(String stamp) {
-        TextureAtlasSprite cached = sprites.get(stamp);
+    /** @return the map icon's sprite as one untinted layer, or null when missing */
+    private static List<Tinted> deco(String stamp) {
+        List<Tinted> cached = sprites.get(stamp);
         if (cached != null) return cached;
-        TextureAtlasSprite s = null;
-        if (stamp.startsWith("deco:")) {
-            if (!com.volcanicmg.mapsketch.model.Rules.DECORATIONS.contains(stamp.substring(5))) return null;
-            AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(DECO_ATLAS);
-            if (t instanceof TextureAtlas atlas) {
-                t.setFilter(false, false);
-                s = atlas.getSprite(ResourceLocation.withDefaultNamespace(stamp.substring(5)));
-            }
-        } else {
-            ItemStack st = SketchRenderer.stack(stamp);
-            if (st == null) return null;
-            s = itemSprite(st);
-        }
-        if (s == null || s.contents().name().equals(MissingTextureAtlasSprite.getLocation())) return null;
-        sprites.put(stamp, s);
-        return s;
+        if (!com.volcanicmg.mapsketch.model.Rules.DECORATIONS.contains(stamp.substring(5))) return null;
+        AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(DECO_ATLAS);
+        if (!(t instanceof TextureAtlas atlas)) return null;
+        t.setFilter(false, false);
+        TextureAtlasSprite s = atlas.getSprite(ResourceLocation.withDefaultNamespace(stamp.substring(5)));
+        if (missing(s)) return null;
+        List<Tinted> out = List.of(new Tinted(s, 0xFFFFFFFF));
+        sprites.put(stamp, out);
+        return out;
     }
 
     /**
-     * The item's flat icon: the first quad's sprite of a generated (flat) item model, else the particle icon (blocks
-     * and other 3D models).
+     * An item's flat icon as layers, like the GUI item renderer draws a generated (flat) item model: its front-facing
+     * quads in order, one per sprite and tint index, each coloured by the item's {@code ItemColors} when tinted (spawn
+     * eggs, potions, leather, tipped arrows, firework stars, maps). Block and other 3D models fall back to their
+     * particle icon, untinted.
+     *
+     * @return the layers, or null when the item has no usable texture
      */
-    private static TextureAtlasSprite itemSprite(ItemStack st) {
+    private static List<Tinted> itemLayers(String stamp) {
+        List<Tinted> cached = sprites.get(stamp);
+        if (cached != null) return cached;
+        ItemStack st = SketchRenderer.stack(stamp);
+        if (st == null) return null;
         BakedModel model = Minecraft.getInstance().getItemRenderer().getModel(st, null, null, 0);
+        List<Tinted> out = new ArrayList<>();
         if (!model.isGui3d()) {
-            List<BakedQuad> quads = model.getQuads(null, null, RandomSource.create(42));
-            if (!quads.isEmpty()) return quads.get(0).getSprite();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            RandomSource rnd = RandomSource.create(42);
+            List<BakedQuad> quads = new ArrayList<>(model.getQuads(null, null, rnd));
+            quads.addAll(model.getQuads(null, net.minecraft.core.Direction.SOUTH, rnd));
+            for (BakedQuad q : quads) {
+                // Generated item models have a front (south) and a back face per layer; the front is what the GUI shows.
+                if (q.getDirection() != net.minecraft.core.Direction.SOUTH || missing(q.getSprite())) continue;
+                if (!seen.add(q.getSprite().contents().name() + "#" + q.getTintIndex())) continue;
+                int color = q.isTinted()
+                        ? 0xFF000000 | Minecraft.getInstance().getItemColors().getColor(st, q.getTintIndex()) & 0xFFFFFF
+                        : 0xFFFFFFFF;
+                out.add(new Tinted(q.getSprite(), color));
+            }
         }
-        return model.getParticleIcon();
+        if (out.isEmpty()) {
+            TextureAtlasSprite p = model.getParticleIcon();
+            if (missing(p)) return null;
+            out.add(new Tinted(p, 0xFFFFFFFF));
+        }
+        out = List.copyOf(out);
+        sprites.put(stamp, out);
+        return out;
+    }
+
+    private static boolean missing(TextureAtlasSprite s) {
+        return s == null || s.contents().name().equals(MissingTextureAtlasSprite.getLocation());
     }
 }

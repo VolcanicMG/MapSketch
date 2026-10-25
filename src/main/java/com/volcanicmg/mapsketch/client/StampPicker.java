@@ -25,7 +25,7 @@ import org.lwjgl.glfw.GLFW;
 final class StampPicker {
     private enum Tab { SYMBOLS, DECOS, ITEMS }
 
-    private static final int BG = 0xF0FFFFFF, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5, COLS = 9, LINES = 7;
+    private static final int BG = 0xFFF8F9FA, BORDER = 0xFF9AA0A6, ACCENT = 0xFF4C6EF5, COLS = 9, LINES = 7;
     private static final List<String> recent = new ArrayList<>();
     private static boolean open, forTool;
     private static String search = "", builtFor;
