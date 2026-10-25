@@ -126,7 +126,9 @@ public final class ClientStore {
             sorted.clear();
         }
         List<UUID> rolled = new ArrayList<>();
-        for (Element e : p.elements()) {
+        for (Element received : p.elements()) {
+            // On an integrated server the payload holds the server's own instances; never mutate them.
+            Element e = received.copy();
             Element mine = elements.get(e.id);
             if (!p.force() && !Rules.replaces(e, mine, pending(e.id))) continue;
             if (p.force()) {

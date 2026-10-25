@@ -59,6 +59,9 @@ public final class SketchData extends SavedData {
             for (Element e : list) {
                 Element c = e.copy();
                 c.order = key = FracIndex.between(key, null);
+                // Old-rule versions (0 or MAX_VALUE) would wedge the element under server-assigned versions.
+                c.version = 1;
+                c.nonce = java.util.concurrent.ThreadLocalRandom.current().nextInt();
                 store.load(c);
             }
         });
