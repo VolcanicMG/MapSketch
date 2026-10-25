@@ -19,17 +19,17 @@ public final class PixelArt {
         add("pin",
                 "................",
                 ".....oooooo.....",
-                "....ohhhfffo....",
-                "...ohhfffffso...",
-                "..ohhffoofffso..",
-                "..ohfffoofffso..",
-                "..offffffffsso..",
-                "..offfffffssso..",
-                "...offfffssso...",
-                "...offffsssso...",
-                "....offfssso....",
+                "....offfffso....",
+                "...ohffssfsso...",
+                "...offshhssso...",
+                "...offshhssso...",
+                "...offfssfsso...",
+                "...offffffsso...",
+                "....offffsso....",
+                "....offffsso....",
                 ".....offsso.....",
                 ".....offsso.....",
+                "......ofso......",
                 "......ofso......",
                 ".......oo.......",
                 "................");
@@ -52,20 +52,20 @@ public final class PixelArt {
                 "................");
         add("x",
                 "................",
-                ".oo..........oo.",
-                "ohho........ohso",
-                "ohhfo......ohfso",
-                ".ohffo....offso.",
-                "..offfo..offso..",
-                "...offfoofffo...",
-                "....offffffo....",
-                "....offffsso....",
-                "...offfooffso...",
-                "..offso..offso..",
-                ".offso....offso.",
-                "offso......offso",
-                "osso........osso",
-                ".oo..........oo.",
+                "...o........o...",
+                "..ofo......oho..",
+                ".osffo....ohfso.",
+                "..osffo..ohfso..",
+                "...osffoohfso...",
+                "....osffhfso....",
+                ".....osffso.....",
+                ".....ohfsfo.....",
+                "....ohfssffo....",
+                "...ohfsoosffo...",
+                "..ohfso..osffo..",
+                ".ohfso....osffo.",
+                "..oso......oso..",
+                "...o........o...",
                 "................");
         add("star",
                 ".......oo.......",
@@ -343,17 +343,17 @@ public final class PixelArt {
                 "................",
                 "................",
                 "..o....oo....o..",
-                ".oho..ohfo..oso.",
-                ".ohfo.ohfo.ofso.",
-                ".ohffoohffoffso.",
-                ".ohfffffffffsso.",
-                ".ohfffffffffsso.",
-                ".ohfohffhofsso..",
+                ".oho..ohho..oso.",
+                ".ofo..offo..oso.",
+                ".offooffffoofso.",
+                ".offffffffffsso.",
+                ".offffffffffsso.",
+                ".offffffffffsso.",
+                ".osssssssssssso.",
+                ".ofhhffhhffhhso.",
+                ".ofhhffhhffhhso.",
                 ".offffffffffsso.",
                 ".oooooooooooooo.",
-                "................",
-                "................",
-                "................",
                 "................",
                 "................");
         add("shield",
@@ -392,20 +392,20 @@ public final class PixelArt {
                 "................");
         add("home_base",
                 "................",
-                "..o.....oo......",
-                "..ohoo.ohfo.....",
-                "..ohhfohhffo....",
-                "..ohhohhffffo...",
-                "..ohohhffffffo..",
-                "..oohhffffffsso.",
-                ".ooooooooooooooo",
-                "..ohffffffffso..",
-                "..ohfoofooofso..",
-                "..ohfoofosofso..",
-                "..offffffosofso.",
-                "..offffffososso.",
-                "..ooooooooooooo.",
-                "................",
+                ".......oooo.....",
+                ".......ohhfo....",
+                ".......offfo....",
+                ".......ooooo....",
+                ".......oo.......",
+                "......ohfo......",
+                ".....ohhffo.....",
+                "....ohhffffo....",
+                "...ohhffffsso...",
+                "..oooooooooooo..",
+                "...ohfoooofso...",
+                "...ohfossofso...",
+                "...offossofso...",
+                "...oooooooooo...",
                 "................");
         add("danger",
                 ".......oo.......",
@@ -475,5 +475,18 @@ public final class PixelArt {
         int out = 0;
         for (int v : c) out = out << 8 | (int) Math.round(Math.min(255, v * k + (255 - v * k) * w));
         return out;
+    }
+
+    /**
+     * The smallest square around an inclusive pixel bounding box, centred on it and kept inside a {@code w} x {@code h}
+     * image (map icons are cropped to it so they fill the stamp box).
+     *
+     * @return {x, y, side}
+     */
+    public static int[] squareAround(int x0, int y0, int x1, int y1, int w, int h) {
+        int side = Math.min(Math.min(w, h), Math.max(x1 - x0, y1 - y0) + 1);
+        int sx = Math.max(0, Math.min(w - side, x0 - (side - (x1 - x0 + 1)) / 2));
+        int sy = Math.max(0, Math.min(h - side, y0 - (side - (y1 - y0 + 1)) / 2));
+        return new int[]{sx, sy, side};
     }
 }

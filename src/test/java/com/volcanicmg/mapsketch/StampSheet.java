@@ -13,8 +13,9 @@ import java.util.zip.ZipFile;
 import javax.imageio.ImageIO;
 
 /**
- * Preview sheet of the pixel stamps ({@code ./gradlew stampSheet -Pout=... -Pres=<minecraft resources jar>}): each
- * symbol at 8x in three tints, then the vanilla map icons. Not part of {@code check}.
+ * Preview sheet of the pixel stamps ({@code ./gradlew stampSheet -Pout=... [-Pres=<minecraft client jar>]}): each
+ * symbol at 8x in three tints, then the vanilla map icons cropped as drawn (read from the client jar in the Gradle cache
+ * by default; nothing is committed). Not part of {@code check}.
  */
 public final class StampSheet {
     private static final int SCALE = 8, CELL = 16 * SCALE + 24;
@@ -47,7 +48,9 @@ public final class StampSheet {
             }
             row += (names.size() + cols - 1) / cols;
         }
-        if (args.length > 1 && new File(args[1]).isFile()) try (ZipFile zip = new ZipFile(args[1])) {
+        String res = args.length > 1 && !args[1].isEmpty() ? args[1]
+                : System.getProperty("user.home") + "/.gradle/caches/neoformruntime/artifacts/minecraft_1.21.1_client.jar";
+        if (new File(res).isFile()) try (ZipFile zip = new ZipFile(res)) {
             for (int i = 0; i < decos.size(); i++) {
                 var entry = zip.getEntry("assets/minecraft/textures/map/decorations/" + decos.get(i) + ".png");
                 if (entry == null) continue;
@@ -56,9 +59,21 @@ public final class StampSheet {
                     icon = ImageIO.read(in);
                 }
                 int cx = i % cols * CELL + 12, cy = (row + i / cols) * CELL + 6;
-                g.drawImage(icon, cx, cy, 8 * SCALE, 8 * SCALE, null);
+                // Cropped to the square around its opaque pixels, as StampArt draws it; whole-texel scale.
+                int x0 = 99, y0 = 99, x1 = -1, y1 = -1;
+                for (int y = 0; y < icon.getHeight(); y++)
+                    for (int x = 0; x < icon.getWidth(); x++)
+                        if ((icon.getRGB(x, y) >>> 24) != 0) {
+                            x0 = Math.min(x0, x);
+                            y0 = Math.min(y0, y);
+                            x1 = Math.max(x1, x);
+                            y1 = Math.max(y1, y);
+                        }
+                int[] q = PixelArt.squareAround(x0, y0, x1, y1, icon.getWidth(), icon.getHeight());
+                int k = 16 * SCALE / q[2];
+                g.drawImage(icon.getSubimage(q[0], q[1], q[2], q[2]), cx, cy, q[2] * k, q[2] * k, null);
                 g.setColor(Color.DARK_GRAY);
-                g.drawString("deco:" + decos.get(i), cx, cy + 8 * SCALE + 14);
+                g.drawString("deco:" + decos.get(i), cx, cy + 16 * SCALE + 14);
             }
         }
         g.dispose();

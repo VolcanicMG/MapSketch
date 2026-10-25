@@ -7,6 +7,7 @@ import com.volcanicmg.mapsketch.model.ElementCodec;
 import com.volcanicmg.mapsketch.model.FracIndex;
 import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.model.Rules;
+import com.volcanicmg.mapsketch.render.PixelArt;
 import com.volcanicmg.mapsketch.render.Rough;
 import com.volcanicmg.mapsketch.render.UiIconArt;
 import com.volcanicmg.mapsketch.render.Tessellator;
@@ -510,6 +511,9 @@ public final class SelfCheck {
                     check(!(UiIconArt.ink(n, x, y) && UiIconArt.ink(n, x + 1, y) && UiIconArt.ink(n, x, y + 1) && UiIconArt.ink(n, x + 1, y + 1)),
                             "1 px strokes (no 2x2 block): " + n + " at " + x + "," + y);
         }
+        // Map icon crop: the 5x7 top-aligned marker becomes a centred 7x7 square; a full icon stays whole.
+        check(Arrays.equals(PixelArt.squareAround(2, 0, 6, 6, 8, 8), new int[]{1, 0, 7})
+                && Arrays.equals(PixelArt.squareAround(0, 0, 7, 7, 8, 8), new int[]{0, 0, 8}), "map icon square crop");
         // Mirroring (start arrowheads) flips columns.
         check(UiIconArt.ink("head_bar@m", 15 - 13, 7) == UiIconArt.ink("head_bar", 13, 7) && UiIconArt.has("head_dot@m"), "mirrored icons");
         // Ids the client draws: "#id" button labels and UiIcons.draw(g, "id", ...) calls.

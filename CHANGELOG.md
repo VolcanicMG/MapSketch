@@ -12,6 +12,10 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Stamps: redrawn X (symmetric 45-degree arms, rounded ends, clean crossing), map pin (round head with a hole,
+  sharp centred point, shaded right side), crown (three ball-tipped peaks, band with three jewels) and home base
+  (symmetric house with a centred door and a flag on the ridge, clearly unlike House). Vanilla map-icon stamps are
+  cropped to the square around their pixels, so the 8x8 markers fill the stamp box like the symbols.
 - Vanilla-styled UI: toolbar, properties panel, colour picker and stamp picker use inventory-style panels, the
   vanilla button / slider / scroller / text-field sprites and the Minecraft font (#404040 labels). Icons are 16x16
   pixel art at 1 texel = 1 GUI pixel: pixel versions of Excalidraw's icons (MIT; a few from Tabler Icons, MIT) with

@@ -35,7 +35,8 @@ final class StampArt {
     static final ResourceLocation SYMBOLS = ResourceLocation.fromNamespaceAndPath(MapSketch.MODID, "stamp_symbols");
     private static final ResourceLocation DECO_ATLAS = ResourceLocation.withDefaultNamespace("textures/atlas/map_decorations.png");
     /** One sprite layer of an item or map icon, with its tint (opaque white = untinted). */
-    private record Tinted(TextureAtlasSprite sprite, int argb) {
+    /** @param crop {u0, v0, u1, v1} as fractions of the sprite, or null for all of it */
+    private record Tinted(TextureAtlasSprite sprite, int argb, float[] crop) {
     }
 
     // Per stamp id (bounded by the registries), cleared on resource reload.
@@ -61,7 +62,10 @@ final class StampArt {
             List<Layer> out = new ArrayList<>(tinted.size());
             for (Tinted t : tinted) {
                 TextureAtlasSprite s = t.sprite();
-                out.add(new Layer(s.atlasLocation(), s.getU0(), s.getV0(), s.getU1(), s.getV1(), Tessellator.withOpacity(t.argb(), e.opacity)));
+                float[] c = t.crop() != null ? t.crop() : new float[]{0, 0, 1, 1};
+                float du = s.getU1() - s.getU0(), dv = s.getV1() - s.getV0();
+                out.add(new Layer(s.atlasLocation(), s.getU0() + du * c[0], s.getV0() + dv * c[1], s.getU0() + du * c[2],
+                        s.getV0() + dv * c[3], Tessellator.withOpacity(t.argb(), e.opacity)));
             }
             return out;
         } catch (Throwable t) {
@@ -116,9 +120,30 @@ final class StampArt {
         t.setFilter(false, false);
         TextureAtlasSprite s = atlas.getSprite(ResourceLocation.withDefaultNamespace(stamp.substring(5)));
         if (missing(s)) return null;
-        List<Tinted> out = List.of(new Tinted(s, 0xFFFFFFFF));
+        List<Tinted> out = List.of(new Tinted(s, 0xFFFFFFFF, crop(s)));
         sprites.put(stamp, out);
         return out;
+    }
+
+    /**
+     * The smallest square around a map icon's opaque pixels, centred and kept inside the sprite: the 8x8 icons (markers
+     * use 5x7 of them, top-aligned) then fill the stamp box like the symbols do.
+     *
+     * @return {u0, v0, u1, v1} as fractions of the sprite
+     */
+    private static float[] crop(TextureAtlasSprite s) {
+        int w = s.contents().width(), h = s.contents().height(), x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (!s.contents().isTransparent(0, x, y)) {
+                    x0 = Math.min(x0, x);
+                    y0 = Math.min(y0, y);
+                    x1 = Math.max(x1, x);
+                    y1 = Math.max(y1, y);
+                }
+        if (x1 < 0) return null;
+        int[] q = PixelArt.squareAround(x0, y0, x1, y1, w, h);
+        return new float[]{q[0] / (float) w, q[1] / (float) h, (q[0] + q[2]) / (float) w, (q[1] + q[2]) / (float) h};
     }
 
     /**
@@ -148,13 +173,13 @@ final class StampArt {
                 int color = q.isTinted()
                         ? 0xFF000000 | Minecraft.getInstance().getItemColors().getColor(st, q.getTintIndex()) & 0xFFFFFF
                         : 0xFFFFFFFF;
-                out.add(new Tinted(q.getSprite(), color));
+                out.add(new Tinted(q.getSprite(), color, null));
             }
         }
         if (out.isEmpty()) {
             TextureAtlasSprite p = model.getParticleIcon();
             if (missing(p)) return null;
-            out.add(new Tinted(p, 0xFFFFFFFF));
+            out.add(new Tinted(p, 0xFFFFFFFF, null));
         }
         out = List.copyOf(out);
         sprites.put(stamp, out);
