@@ -87,7 +87,16 @@ public final class Rules {
         if (!(e.fontSize >= 0.5f && e.fontSize <= 2000)) return "bad font size";
         if (e.roughness < 0 || e.roughness > 2 || e.opacity < 0 || e.opacity > 100) return "bad style";
         if (!FracIndex.valid(e.order)) return "bad order";
+        if (!validFixed(e.startFixed, e.startBind) || !validFixed(e.endFixed, e.endBind)) return "bad binding";
         return null;
+    }
+
+    /** A fixed binding point: absent, or a finite normalized pair on an end that is actually bound. */
+    private static boolean validFixed(float[] f, UUID bind) {
+        if (f == null) return true;
+        if (bind == null || f.length != 2) return false;
+        for (float v : f) if (!Float.isFinite(v) || v < 0 || v > 1) return false;
+        return true;
     }
 
     private static boolean finite(double d) {

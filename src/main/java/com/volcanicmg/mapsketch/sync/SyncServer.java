@@ -584,8 +584,14 @@ public final class SyncServer {
             for (Element a : store.arrowsBoundTo(gone.id)) {
                 if (leases.containsKey(a.id)) continue;
                 Element c = a.copy();
-                if (gone.id.equals(c.startBind)) c.startBind = null;
-                if (gone.id.equals(c.endBind)) c.endBind = null;
+                if (gone.id.equals(c.startBind)) {
+                    c.startBind = null;
+                    c.startFixed = null;
+                }
+                if (gone.id.equals(c.endBind)) {
+                    c.endBind = null;
+                    c.endFixed = null;
+                }
                 if (a.version == Integer.MAX_VALUE) continue;
                 c.version = a.version + 1;
                 c.nonce = java.util.concurrent.ThreadLocalRandom.current().nextInt();

@@ -1,7 +1,9 @@
 package com.volcanicmg.mapsketch.client;
 
 import com.volcanicmg.mapsketch.Config;
+import com.volcanicmg.mapsketch.model.Bindings;
 import com.volcanicmg.mapsketch.model.Element;
+import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.net.ServerInfoPayload;
 import java.util.ArrayList;
 import java.util.List;
@@ -349,7 +351,42 @@ public final class EditorUi {
         g.fill(x + w - 1, y, x + w, y + h, c);
     }
 
+    /** While an arrow/line end is dragged: the target's link nodes, its outline for an edge binding, the fixed point. */
+    private static void bindOverlay(GuiGraphics g, MapView v) {
+        Editor.BindPreview bp = Editor.bindPreview();
+        if (bp == null) return;
+        Element t = ClientStore.get(bp.target().id);
+        if (t == null || t.deleted) return;
+        Bindings.Hit hit = bp.hit();
+        if (hit.kind() == Bindings.Kind.EDGE) {
+            float[] o = Geometry.outline(t);
+            float[] pts = new float[o.length + 2];
+            for (int i = 0; i <= o.length / 2; i++) {
+                int k = i % (o.length / 2);
+                double[] w = Geometry.toWorld(t, o[k * 2], o[k * 2 + 1]);
+                pts[i * 2] = (float) v.guiX(w[0]);
+                pts[i * 2 + 1] = (float) v.guiY(w[1]);
+            }
+            SketchRenderer.drawPolyline(g, pts, 2, 0xC04C6EF5, 4);
+        }
+        float[][] nodes = Bindings.anchors(t);
+        for (int i = 0; i < nodes.length; i++) {
+            double[] w = Bindings.fixedPoint(t, nodes[i][0], nodes[i][1]);
+            int x = (int) Math.round(v.guiX(w[0])), y = (int) Math.round(v.guiY(w[1]));
+            boolean on = hit.kind() == Bindings.Kind.DOT && hit.dot() == i;
+            int r = on ? 4 : 3;
+            g.fill(x - r, y - r, x + r + 1, y + r + 1, ACCENT);
+            if (!on) g.fill(x - r + 1, y - r + 1, x + r, y + r, 0xFFFFFFFF);
+        }
+        if (hit.kind() == Bindings.Kind.INSIDE) {
+            double[] w = Bindings.fixedPoint(t, hit.fx(), hit.fz());
+            int x = (int) Math.round(v.guiX(w[0])), y = (int) Math.round(v.guiY(w[1]));
+            g.fill(x - 2, y - 2, x + 3, y + 3, ACCENT);
+        }
+    }
+
     private static void selectionOverlay(GuiGraphics g, MapView v) {
+        bindOverlay(g, v);
         if (Editor.boxSelecting()) {
             double[] b = Editor.boxWorld();
             int x1 = (int) v.guiX(b[0]), y1 = (int) v.guiY(b[1]), x2 = (int) v.guiX(b[2]), y2 = (int) v.guiY(b[3]);

@@ -35,7 +35,7 @@ without Minecraft.
 | `stroke`, `fill` ARGB, `fillStyle`, `strokeWidth` (blocks), `strokeStyle`, `roughness` 0-2, `round`, `opacity` | style |
 | `arrowStart`, `arrowEnd` | NONE, ARROW, TRIANGLE, BAR, DOT (lines and arrows) |
 | `text`, `fontSize` (blocks), `align` | TEXT elements; box types draw `text` centred inside, linear at the bounds centre |
-| `startBind`, `endBind` | arrow binding targets |
+| `startBind`, `endBind`, `startFixed`, `endFixed` | arrow/line binding targets; a fixed point (normalized in the target's local frame) for node and inside bindings, null for an edge binding |
 | `seed` | roughness RNG seed fixed at creation: every client draws the same wobble |
 | `groups` UUID[] | innermost first; selecting one member selects the outermost group |
 | `order` | fractional index, Excalidraw's scheme (rocicorp fractional-indexing port): base-62 integer part whose head char encodes its length, then a fraction never ending in `0`; appends/prepends stay ~3-5 chars; ties broken by id. Saves without the `format: 2` marker are re-keyed once on load, keeping their order |

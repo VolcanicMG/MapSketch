@@ -13,8 +13,8 @@ import java.util.UUID;
  * Minecraft. Hard caps here only stop absurd payloads; the configurable limits live in {@link Rules#validate}.
  */
 public final class ElementCodec {
-    // 2 added baseNonce; 1 is still read (pre-release saves).
-    private static final int FORMAT = 2;
+    // 2 added baseNonce, 3 fixed binding points; older formats are still read.
+    private static final int FORMAT = 3;
     public static final int MAX_POINTS = 10_000, MAX_TEXT = 4096, MAX_GROUPS = 16, MAX_ORDER = 64;
 
     private ElementCodec() {
@@ -47,6 +47,8 @@ public final class ElementCodec {
         buf.writeByte(e.align.ordinal());
         writeNullable(buf, e.startBind);
         writeNullable(buf, e.endBind);
+        writePair(buf, e.startFixed);
+        writePair(buf, e.endFixed);
         buf.writeInt(e.seed);
         buf.writeInt(e.groups.length);
         for (UUID g : e.groups) uuid(buf, g);
@@ -92,6 +94,10 @@ public final class ElementCodec {
         e.align = pick(Element.Align.values(), buf.readByte());
         e.startBind = readNullable(buf);
         e.endBind = readNullable(buf);
+        if (format >= 3) {
+            e.startFixed = readPair(buf);
+            e.endFixed = readPair(buf);
+        }
         e.seed = buf.readInt();
         int g = buf.readInt();
         if (g < 0 || g > MAX_GROUPS) throw new IllegalArgumentException("too many groups");
@@ -145,6 +151,18 @@ public final class ElementCodec {
 
     private static UUID readNullable(DataInputStream buf) throws IOException {
         return buf.readBoolean() ? uuid(buf) : null;
+    }
+
+    private static void writePair(DataOutputStream buf, float[] p) throws IOException {
+        buf.writeBoolean(p != null);
+        if (p != null) {
+            buf.writeFloat(p[0]);
+            buf.writeFloat(p[1]);
+        }
+    }
+
+    private static float[] readPair(DataInputStream buf) throws IOException {
+        return buf.readBoolean() ? new float[]{buf.readFloat(), buf.readFloat()} : null;
     }
 
     private static void uuid(DataOutputStream buf, UUID id) throws IOException {

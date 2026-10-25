@@ -38,6 +38,11 @@ public final class Element {
     public float fontSize = 6;
     public Align align = Align.CENTER;
     public UUID startBind, endBind;
+    /**
+     * Fixed binding point of each end in the target's local frame, normalized to its unrotated box (0..1), or null
+     * for an edge binding (end sits on the outline, aimed at the other end).
+     */
+    public float[] startFixed, endFixed;
     public int seed;
     public UUID[] groups = new UUID[0];
     public String order = "a0";
@@ -140,6 +145,8 @@ public final class Element {
         e.align = align;
         e.startBind = startBind;
         e.endBind = endBind;
+        e.startFixed = startFixed == null ? null : startFixed.clone();
+        e.endFixed = endFixed == null ? null : endFixed.clone();
         e.seed = seed;
         e.groups = groups.clone();
         e.order = order;
@@ -162,6 +169,7 @@ public final class Element {
                 && round == o.round && opacity == o.opacity && arrowStart == o.arrowStart && arrowEnd == o.arrowEnd
                 && text.equals(o.text) && fontSize == o.fontSize && align == o.align
                 && java.util.Objects.equals(startBind, o.startBind) && java.util.Objects.equals(endBind, o.endBind)
+                && Arrays.equals(startFixed, o.startFixed) && Arrays.equals(endFixed, o.endFixed)
                 && Arrays.equals(groups, o.groups) && order.equals(o.order) && visibility == o.visibility
                 && locked == o.locked && deleted == o.deleted;
     }

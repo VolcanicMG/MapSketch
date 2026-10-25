@@ -7,6 +7,10 @@ First release.
 - Fix: arrows bound to a shape now follow it when it is moved, resized or rotated (the grab's lease request was
   emptied before it was sent), and on arrow-key nudges, in the same undo step; arrows bound at both ends to moved
   shapes aim centre to centre.
+- Arrow binding as in current Excalidraw: link nodes (side midpoints, centre, plus corners on rectangles and
+  diamonds) shown while dragging an end; drops on a node or well inside a shape bind to that fixed point (stored in
+  the shape's local frame, so it follows moves, resizes and rotations); drops near the outline bind to the edge;
+  `Ctrl` disables binding. Lines bind too. Network channel 3, element format 3 (older saves still load).
 - Colour picker for stroke and background: saturation/value square, hue and opacity bars, old/new preview,
   palette, 8 recent colours, hex field. Live preview on the selection; kept as one edit and one undo step.
 - Middle-mouse drag pans the world map with any tool (and outside draw mode). New shapes default to the

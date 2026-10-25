@@ -1,5 +1,6 @@
 package com.volcanicmg.mapsketch;
 
+import com.volcanicmg.mapsketch.model.Bindings;
 import com.volcanicmg.mapsketch.model.Colors;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.ElementCodec;
@@ -29,6 +30,7 @@ public final class SelfCheck {
         tessellationCaps();
         colors();
         follow();
+        fixedBindings();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -329,6 +331,67 @@ public final class SelfCheck {
         check(Geometry.distToPolyline(Geometry.outline(r), true, l[0], l[1]) < 1e-3, "end on the rotated outline");
     }
 
+    /** Inside fixed points and link nodes follow move/resize/rotate; dot beats inside beats edge band. */
+    private static void fixedBindings() {
+        Element r = rect(10, 10, 20, 10);
+        double[] p = Bindings.fixedPoint(r, 0.25, 0.5);
+        check(near(p, 15, 15), "fixed point " + Arrays.toString(p));
+        r.x += 5;
+        check(near(Bindings.fixedPoint(r, 0.25, 0.5), 20, 15), "follows a move");
+        r.x = 10;
+        r.w = 40;
+        check(near(Bindings.fixedPoint(r, 0.25, 0.5), 20, 15), "follows a resize");
+        r.w = 20;
+        r.angle = (float) (Math.PI / 2);
+        check(near(Bindings.fixedPoint(r, 0.25, 0.5), 20, 10), "follows a rotation " + Arrays.toString(Bindings.fixedPoint(r, 0.25, 0.5)));
+        // An arrow bound at a fixed point lands exactly there after its target rotates.
+        Element arrow = rect(0, 0, 0, 0);
+        arrow.type = Element.Type.ARROW;
+        arrow.pts = new float[]{0, 0, 15, 15};
+        arrow.endBind = r.id;
+        arrow.endFixed = new float[]{0.25f, 0.5f};
+        Element f = Bindings.follow(arrow, java.util.Map.of(r.id, r), 1);
+        check(Math.abs(f.x + f.pts[2] - 20) < 1e-4 && Math.abs(f.z + f.pts[3] - 10) < 1e-4, "fixed-bound end follows");
+        // Thresholds on a 100x100 box: band 2, node radius 3.
+        Element b = rect(0, 0, 100, 100);
+        check(Bindings.classify(b, 50, 0.5, 2, 3).kind() == Bindings.Kind.DOT, "side midpoint on the edge: node wins");
+        check(Bindings.classify(b, 50, 50, 2, 3).kind() == Bindings.Kind.DOT, "centre is a node");
+        check(Bindings.classify(b, 100, 100, 2, 3).dot() == 7, "rectangle corner node");
+        check(Bindings.classify(b, 30, 1, 2, 3).kind() == Bindings.Kind.EDGE, "inside but within the band: edge");
+        check(Bindings.classify(b, 30, -1.5, 2, 3).kind() == Bindings.Kind.EDGE, "outside within the band: edge");
+        Bindings.Hit in = Bindings.classify(b, 30, 2.5, 2, 3);
+        check(in.kind() == Bindings.Kind.INSIDE && Math.abs(in.fx() - 0.3) < 1e-5 && Math.abs(in.fz() - 0.025) < 1e-5, "well inside: fixed point");
+        check(Bindings.classify(b, 40, 40, 2, 3).kind() == Bindings.Kind.INSIDE, "deep inside: fixed point");
+        check(Bindings.classify(b, 30, -5, 2, 3).kind() == Bindings.Kind.NONE, "outside the band: nothing");
+        Element e = rect(0, 0, 100, 100);
+        e.type = Element.Type.ELLIPSE;
+        check(Bindings.anchors(e).length == 5 && Bindings.classify(e, 0, 0, 2, 3).kind() == Bindings.Kind.NONE, "ellipse: no corner nodes");
+        // Rotated diamond: its top corner (0.5, 0) turns to the right side.
+        Element d = rect(0, 0, 10, 10);
+        d.type = Element.Type.DIAMOND;
+        d.angle = (float) (Math.PI / 2);
+        check(near(Bindings.fixedPoint(d, 0.5, 0), 10, 5), "rotated diamond corner " + Arrays.toString(Bindings.fixedPoint(d, 0.5, 0)));
+        Bindings.Hit dh = Bindings.classify(d, 10, 5, 0.5, 1);
+        check(dh.kind() == Bindings.Kind.DOT && dh.fx() == 0.5f && dh.fz() == 0, "node hit on a rotated diamond");
+        // Topmost shape wins; the arrow itself never binds to itself.
+        Element top = rect(0, 0, 100, 100), under = rect(0, 0, 100, 100);
+        Bindings.Pick pk = Bindings.pick(java.util.List.of(top, under), top.id, 40, 40, 2, 3);
+        check(pk != null && pk.target() == under, "self skipped, next shape picked");
+        // Rules: a fixed point must be normalized and on a bound end.
+        Element v = arrow.copy();
+        Rules.Limits lim = new Rules.Limits(100, 10);
+        check(Rules.validate(v, lim) == null, "valid fixed binding");
+        v.endFixed = new float[]{1.5f, 0};
+        check(Rules.validate(v, lim) != null, "out-of-range fixed point rejected");
+        v.endFixed = new float[]{0.5f, 0.5f};
+        v.endBind = null;
+        check(Rules.validate(v, lim) != null, "fixed point without a binding rejected");
+    }
+
+    private static boolean near(double[] p, double x, double z) {
+        return Math.abs(p[0] - x) < 1e-4 && Math.abs(p[1] - z) < 1e-4;
+    }
+
     /** Colour picker maths: HSV and RGB round-trip, packing, hex. */
     private static void colors() {
         for (int rgb = 0; rgb < 0x1000000; rgb += 0x010305) {
@@ -352,6 +415,7 @@ public final class SelfCheck {
         e.text = "hi";
         e.groups = new UUID[]{B};
         e.endBind = C;
+        e.endFixed = new float[]{0.25f, 1};
         e.version = 7;
         e.nonce = -3;
         e.baseNonce = 11;

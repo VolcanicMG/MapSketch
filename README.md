@@ -36,7 +36,13 @@ mode off, Xaero behaves exactly as normal.
 
 `Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) undo/redo your own edits, `Ctrl+C/X/V` copy/cut/paste, `Ctrl+D` duplicate,
 `Ctrl+A` select all, `Ctrl+G` / `Ctrl+Shift+G` group/ungroup, `Ctrl+]` / `Ctrl+[` forward/backward (with shift: to
-front/back), `Delete` delete, arrow keys nudge. Arrows dropped on a shape bind to it and follow it.
+front/back), `Delete` delete, arrow keys nudge.
+
+Arrow and line ends bind to rectangles, diamonds, ellipses and text boxes, and follow them when they move, resize or
+rotate. While you drag an end near a shape its link nodes appear (side midpoints and centre; rectangles and diamonds
+also their corners). Drop on a node to bind there; drop well inside the shape to bind at that exact spot; drop near
+the outline to bind to the edge (the end then slides along the outline, aimed at the other end). Hold `Ctrl` while
+dropping to not bind.
 
 The panel on the left sets the style of the selection and of the next shape: stroke and background colour, fill,
 stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can see it, layers,

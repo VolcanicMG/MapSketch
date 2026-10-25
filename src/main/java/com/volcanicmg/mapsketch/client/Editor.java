@@ -658,7 +658,11 @@ public final class Editor {
         boolean shift = Screen.hasShiftDown();
         switch (drag) {
             case CREATE -> sizeDraft(shift);
-            case LINE -> setLastPoint(draft, curX, curZ, shift);
+            case LINE -> {
+                setLastPoint(draft, curX, curZ, shift);
+                int n = draft.pointCount();
+                previewBind(draft.id, draft.x + draft.pts[(n - 1) * 2], draft.z + draft.pts[(n - 1) * 2 + 1]);
+            }
             case FREEDRAW -> {
                 float[] p = draft.pts;
                 if (draft.pointCount() < maxPoints()) {
@@ -674,7 +678,13 @@ public final class Editor {
             });
             case RESIZE -> resize(shift);
             case ROTATE -> rotate(shift);
-            case POINT -> movePoint();
+            case POINT -> {
+                movePoint();
+                Element pe = live(snapshot.keySet().iterator().next());
+                if (pe != null && Bindings.binder(pe) && (pointIndex == 0 || pointIndex == pe.pointCount() - 1))
+                    previewBind(pe.id, curX, curZ);
+                else bindPreview = null;
+            }
             case ERASE -> eraseAt(v, curX, curZ);
             case LASER -> laser.add(new double[]{curX, curZ, System.currentTimeMillis()});
             default -> {
@@ -750,7 +760,8 @@ public final class Editor {
         }
         if (was == Drag.POINT) {
             Element e = live(snapshot.keySet().iterator().next());
-            if (e != null && e.type == Element.Type.ARROW && (pointIndex == 0 || pointIndex == e.pointCount() - 1)) {
+            bindPreview = null;
+            if (e != null && Bindings.binder(e) && (pointIndex == 0 || pointIndex == e.pointCount() - 1)) {
                 Element c = e.copy();
                 bindEnd(c, pointIndex == 0);
                 ClientStore.local(c, false);
@@ -826,8 +837,14 @@ public final class Editor {
             boolean s = a.startBind == null || moved.contains(a.startBind), en = a.endBind == null || moved.contains(a.endBind);
             if (s && en) continue;
             Element c = a.copy();
-            if (!s) c.startBind = null;
-            if (!en) c.endBind = null;
+            if (!s) {
+                c.startBind = null;
+                c.startFixed = null;
+            }
+            if (!en) {
+                c.endBind = null;
+                c.endFixed = null;
+            }
             ClientStore.local(c, false);
         }
         for (UUID id : followable) {
@@ -862,27 +879,53 @@ public final class Editor {
         a.fitPoints();
     }
 
-    /** Binds an arrow end dropped on a shape (or releases it), snapping it to the outline. */
+    /** GUI-pixel radius of a link node hit, and width of the edge band; scaled to world blocks at the zoom. */
+    private static final double DOT_PX = 6, BAND_PX = 8;
+
+    /**
+     * Binds a dropped arrow/line end, Excalidraw style: on a link node, at a fixed point well inside a shape, or on
+     * its outline when dropped near it; Ctrl held = no binding.
+     */
     private static void bindEnd(Element a, boolean start) {
         bake(a);
         int n = a.pointCount(), i = start ? 0 : n - 1;
-        double px = a.x + a.pts[i * 2], pz = a.z + a.pts[i * 2 + 1];
-        Element target = null;
-        if (view != null) {
-            List<Element> all = ClientStore.sorted(view.dim());
-            for (int k = all.size() - 1; k >= 0; k--) {
-                Element t = all.get(k);
-                if (t.id.equals(a.id) || !(t.closed() || t.type == Element.Type.TEXT)) continue;
-                if (Geometry.inside(Geometry.outline(t), Geometry.toLocal(t, px, pz)[0], Geometry.toLocal(t, px, pz)[1])
-                        || Geometry.hit(t, px, pz, view.blocks(6))) {
-                    target = t;
-                    break;
-                }
-            }
+        Bindings.Pick p = Screen.hasControlDown() ? null : pickAt(a.id, a.x + a.pts[i * 2], a.z + a.pts[i * 2 + 1]);
+        Bindings.bind(a, start, p == null ? null : p.target(), p == null ? null : p.hit(), view == null ? 1 : view.blocks(4));
+        a.fitPoints();
+    }
+
+    /** @return what an end at world (wx, wz) would bind to, topmost shape first, or null */
+    private static Bindings.Pick pickAt(UUID self, double wx, double wz) {
+        if (view == null) return null;
+        List<Element> top = new ArrayList<>(ClientStore.sorted(view.dim()));
+        Collections.reverse(top);
+        return Bindings.pick(top, self, wx, wz, view.blocks(BAND_PX), view.blocks(DOT_PX));
+    }
+
+    /** Binding preview while an arrow/line end is dragged; null when none. */
+    public record BindPreview(Element target, Bindings.Hit hit, double x, double z) {
+    }
+
+    private static BindPreview bindPreview;
+
+    public static BindPreview bindPreview() {
+        return bindPreview;
+    }
+
+    /** Recomputes the preview for the end being dragged (or the trailing point of a click-built line). */
+    private static void previewBind(UUID self, double wx, double wz) {
+        bindPreview = null;
+        if (Screen.hasControlDown() || view == null) return;
+        Bindings.Pick p = pickAt(self, wx, wz);
+        if (p != null) {
+            bindPreview = new BindPreview(p.target(), p.hit(), wx, wz);
+            return;
         }
-        if (start) a.startBind = target == null ? null : target.id;
-        else a.endBind = target == null ? null : target.id;
-        if (target != null) snapEnd(a, start);
+        // Near a shape but not binding yet: show its link nodes so they can be aimed at.
+        List<Element> top = new ArrayList<>(ClientStore.sorted(view.dim()));
+        Collections.reverse(top);
+        Bindings.Pick near = Bindings.pick(top, self, wx, wz, view.blocks(BAND_PX * 3), view.blocks(DOT_PX));
+        if (near != null) bindPreview = new BindPreview(near.target(), new Bindings.Hit(Bindings.Kind.NONE, 0, 0, -1), wx, wz);
     }
 
     private static void sizeDraft(boolean square) {
@@ -918,7 +961,8 @@ public final class Editor {
         draft = null;
         if (e == null) return;
         e.fitPoints();
-        if (e.type == Element.Type.ARROW) {
+        bindPreview = null;
+        if (Bindings.binder(e)) {
             bindEnd(e, true);
             bindEnd(e, false);
         }
@@ -1130,8 +1174,14 @@ public final class Editor {
         if (pointIndex >= e.pointCount()) return;
         e.pts[pointIndex * 2] = (float) (curX - e.x);
         e.pts[pointIndex * 2 + 1] = (float) (curZ - e.z);
-        if (pointIndex == 0) e.startBind = null;
-        if (pointIndex == e.pointCount() - 1) e.endBind = null;
+        if (pointIndex == 0) {
+            e.startBind = null;
+            e.startFixed = null;
+        }
+        if (pointIndex == e.pointCount() - 1) {
+            e.endBind = null;
+            e.endFixed = null;
+        }
         e.fitPoints();
         ClientStore.local(e, false);
     }
@@ -1386,6 +1436,8 @@ public final class Editor {
             for (int i = 0; i < e.groups.length; i++) e.groups[i] = ids.computeIfAbsent(e.groups[i], k -> UUID.randomUUID());
             e.startBind = s.startBind == null ? null : ids.get(s.startBind);
             e.endBind = s.endBind == null ? null : ids.get(s.endBind);
+            if (e.startBind == null) e.startFixed = null;
+            if (e.endBind == null) e.endFixed = null;
             e.order = top = FracIndex.between(top, null);
             e.owner = me();
             e.version = 0;
@@ -1499,8 +1551,11 @@ public final class Editor {
         view = v;
         mouseGX = gx;
         mouseGY = gy;
-        if (draft != null && drag == Drag.NONE && (draft.type == Element.Type.LINE || draft.type == Element.Type.ARROW))
+        if (draft != null && drag == Drag.NONE && (draft.type == Element.Type.LINE || draft.type == Element.Type.ARROW)) {
             setLastPoint(draft, v.worldX(gx), v.worldZ(gy), Screen.hasShiftDown());
+            int n = draft.pointCount();
+            previewBind(draft.id, draft.x + draft.pts[(n - 1) * 2], draft.z + draft.pts[(n - 1) * 2 + 1]);
+        } else if (drag != Drag.LINE && drag != Drag.POINT) bindPreview = null;
         long now = System.currentTimeMillis();
         laser.removeIf(p -> now - p[2] > 1000);
     }
