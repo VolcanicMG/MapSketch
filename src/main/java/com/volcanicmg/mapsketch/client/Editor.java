@@ -642,8 +642,9 @@ public final class Editor {
             return;
         }
         Element hit = topAt(v, wx, wz);
-        if (dbl) {
-            startTextEdit(v, hit != null && hit.type != Element.Type.FREEDRAW ? hit : null, wx, wz);
+        // Double-click edits an existing shape's text; new text boxes come from the Text tool only.
+        if (dbl && hit != null && hit.type != Element.Type.FREEDRAW) {
+            startTextEdit(v, hit, wx, wz);
             return;
         }
         if (hit == null) {
