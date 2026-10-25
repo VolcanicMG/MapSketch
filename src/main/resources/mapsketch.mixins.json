@@ -1,0 +1,16 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.volcanicmg.mapsketch.mixin",
+  "plugin": "com.volcanicmg.mapsketch.client.xaero.XaeroMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "GuiMapAccessor",
+    "GuiMapMixin",
+    "MinimapFboAccessor",
+    "MinimapHandlerAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

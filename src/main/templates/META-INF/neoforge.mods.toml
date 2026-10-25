@@ -1,0 +1,53 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://github.com/VolcanicMG/MapSketch/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="VolcanicMG"
+displayURL="https://github.com/VolcanicMG/MapSketch"
+description='''
+Excalidraw-style vector drawing on Xaero's World Map: shapes, arrows, lines, pen, text and a laser pointer, shown on the World Map and Minimap and shared with your team through the server.
+'''
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="xaeroworldmap"
+    type="optional"
+    # Mixins and accessors target these exact internals; widen only after testing a new version.
+    versionRange="[1.47.0,1.48)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="xaerominimap"
+    type="optional"
+    versionRange="[26.6.0,26.7)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="ftbteams"
+    type="optional"
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"
