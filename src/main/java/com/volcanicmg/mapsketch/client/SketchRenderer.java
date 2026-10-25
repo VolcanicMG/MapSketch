@@ -9,9 +9,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 import com.volcanicmg.mapsketch.model.Element;
+import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.render.Tessellator;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -132,46 +135,94 @@ public final class SketchRenderer {
         BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
                 DefaultVertexFormat.POSITION_COLOR);
         float step = 150f / Math.max(1, list.size());
-        boolean[] model = new boolean[list.size()];
-        int budget = MAX_ITEM_MODELS;
+        List<Pending> quads = new ArrayList<>();
         try {
             for (int i = 0; i < list.size(); i++) {
                 Element e = list.get(i);
                 if (replaced.contains(e.id) || !visible(e, view)) continue;
                 float z = depthOrdered ? -200 + i * step : 0, alpha = faded.contains(e.id) ? 0.3f : 1f;
                 emit(bb, pose, mesh(cache, e, pxPerBlock, storedKey(e)), e.x - camX, e.z - camZ, z, alpha);
-                // Item stamps: the item model when big enough and within the per-pass budget, else a batched tile.
-                if (e.type == Element.Type.STAMP && stack(e.stamp) != null) {
-                    if (wantsModel(e, pxPerBlock) && budget > 0) {
-                        model[i] = true;
-                        budget--;
-                    } else emit(bb, pose, tileMesh(e, pxPerBlock), e.x - camX, e.z - camZ, z, alpha);
-                }
+                if (e.type == Element.Type.STAMP) stamp(bb, pose, quads, e, camX, camZ, pxPerBlock, z, alpha);
             }
         } finally {
             end(bb, depthOrdered);
         }
+        drawQuads(pose, quads, camX, camZ, depthOrdered);
         for (int i = 0; i < list.size(); i++) {
             Element e = list.get(i);
             if (replaced.contains(e.id) || !visible(e, view)) continue;
-            float z = depthOrdered ? -200 + i * step + step / 2 : 0.1f;
-            if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, z);
-            if (model[i]) drawItem(g, e, camX, camZ, z, !depthOrdered);
+            if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, depthOrdered ? -200 + i * step + step / 2 : 0.1f);
         }
         g.flush();
     }
 
-    /** Item models per draw pass (world map, minimap, ghosts each); stamps beyond it are drawn as tiles. */
-    private static final int MAX_ITEM_MODELS = 200;
-    /** Below this many screen pixels an item stamp is a tinted tile, not an item model. */
-    private static final double MIN_MODEL_PX = 12;
-    private static final Map<UUID, Cached[]> tileCache = new HashMap<>();
+    /** Textured stamp quads per draw pass; stamps beyond it are drawn as tiles. */
+    private static final int MAX_STAMP_QUADS = 2000;
+    /** Below this many screen pixels a stamp is a tinted tile. */
+    private static final double MIN_STAMP_PX = 6;
 
-    private static boolean wantsModel(Element e, double pxPerBlock) {
-        return !itemsBroken && Math.min(e.w, e.h) * pxPerBlock >= MIN_MODEL_PX;
+    /** A stamp waiting for the textured pass. */
+    private record Pending(Element e, float z, float alpha, List<StampArt.Layer> layers) {
     }
 
-    /** A tinted, bordered tile standing in for an item stamp (small, over budget, or item rendering failed). */
+    /** Queues a stamp's textured layers, or batches a tile into {@code bb} when small, over budget or untextured. */
+    private static void stamp(BufferBuilder bb, Matrix4f pose, List<Pending> quads, Element e, double camX, double camZ,
+                              double pxPerBlock, float z, float alpha) {
+        List<StampArt.Layer> layers = Math.min(e.w, e.h) * pxPerBlock >= MIN_STAMP_PX && quads.size() < MAX_STAMP_QUADS
+                ? StampArt.layers(e) : null;
+        if (layers != null) quads.add(new Pending(e, z, alpha, layers));
+        else emit(bb, pose, tileMesh(e, pxPerBlock), e.x - camX, e.z - camZ, z, alpha);
+    }
+
+    /**
+     * Draws queued stamps as flat textured quads, one batch per atlas. Corners go through the same element transform
+     * as shapes ({@link Geometry#toWorld}) under the caller's pose, so rotation and the minimap's rotated, zoomed pose
+     * apply identically (no item-model rendering, so no squashing or lighting). The textured shader discards
+     * transparent texels, so they never write depth.
+     */
+    private static void drawQuads(Matrix4f pose, List<Pending> quads, double camX, double camZ, boolean depthOrdered) {
+        if (quads.isEmpty()) return;
+        Map<ResourceLocation, List<Object[]>> byAtlas = new LinkedHashMap<>();
+        for (Pending p : quads)
+            for (StampArt.Layer l : p.layers()) byAtlas.computeIfAbsent(l.atlas(), k -> new ArrayList<>()).add(new Object[]{p, l});
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        if (depthOrdered) {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        } else RenderSystem.disableDepthTest();
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        try {
+            for (Map.Entry<ResourceLocation, List<Object[]>> en : byAtlas.entrySet()) {
+                RenderSystem.setShaderTexture(0, en.getKey());
+                BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.QUADS,
+                        DefaultVertexFormat.POSITION_TEX_COLOR);
+                for (Object[] o : en.getValue()) {
+                    Pending p = (Pending) o[0];
+                    StampArt.Layer l = (StampArt.Layer) o[1];
+                    Element e = p.e();
+                    int c = l.argb();
+                    if (p.alpha() != 1f) c = (int) ((c >>> 24) * p.alpha()) << 24 | c & 0xFFFFFF;
+                    double[][] corners = {{0, 0, l.u0(), l.v0()}, {0, e.h, l.u0(), l.v1()}, {e.w, e.h, l.u1(), l.v1()}, {e.w, 0, l.u1(), l.v0()}};
+                    for (double[] k : corners) {
+                        double[] w = Geometry.toWorld(e, k[0], k[1]);
+                        bb.addVertex(pose, (float) (w[0] - camX), (float) (w[1] - camZ), p.z()).setUv((float) k[2], (float) k[3]).setColor(c);
+                    }
+                }
+                MeshData data = bb.build();
+                if (data != null) BufferUploader.drawWithShader(data);
+            }
+        } finally {
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableDepthTest();
+            RenderSystem.enableCull();
+        }
+    }
+
+    private static final Map<UUID, Cached[]> tileCache = new HashMap<>();
+
+    /** A tinted, bordered tile standing in for a stamp (tiny on screen, over budget, or without a texture). */
     private static Tessellator.Mesh tileMesh(Element e, double pxPerBlock) {
         Element t = e.copy();
         t.type = Element.Type.RECTANGLE;
@@ -185,8 +236,6 @@ public final class SketchRenderer {
     }
 
     private static final Map<String, ItemStack> stacks = new HashMap<>();
-    // Set once the item renderer fails (most likely inside Xaero's minimap pass): tiles from then on.
-    private static boolean itemsBroken;
 
     /**
      * @return the item stack of an {@code item:} stamp, or null for symbols and unknown items. Only hits are cached,
@@ -205,34 +254,6 @@ public final class SketchRenderer {
         return st;
     }
 
-    /**
-     * Item/block icon stamps with Minecraft's item renderer, scaled to the element box and rotated with it; depth
-     * flattened so 3D block models stay in the element's layer. A failure switches every item stamp to a plain tile.
-     */
-    static void drawItem(GuiGraphics g, Element e, double camX, double camZ, float z, boolean minimap) {
-        ItemStack st = stack(e.stamp);
-        if (st == null || itemsBroken) return;
-        double[] c = e.center();
-        PoseStack pose = g.pose();
-        pose.pushPose();
-        try {
-            pose.translate(c[0] - camX, c[1] - camZ, z);
-            pose.mulPose(Axis.ZP.rotation(e.angle));
-            pose.scale((float) (e.w / 16), (float) (e.h / 16), 0.01f);
-            pose.translate(-8, -8, 0);
-            RenderSystem.setShaderColor(1, 1, 1, e.opacity / 100f);
-            g.renderItem(st, 0, 0);
-        } catch (Throwable t) {
-            itemsBroken = true;
-            com.volcanicmg.mapsketch.MapSketch.LOGGER.warn("Item stamps cannot render here ({}); drawing tiles instead",
-                    minimap ? "minimap" : "world map", t);
-        } finally {
-            RenderSystem.setShaderColor(1, 1, 1, 1);
-            pose.popPose();
-        }
-    }
-
-
     /** Draws live elements on top (own shape in progress, other players' ghosts), cached by content. */
     public static void drawLive(GuiGraphics g, Collection<Element> list, double camX, double camZ, double pxPerBlock, float alpha) {
         if (list.isEmpty()) return;
@@ -240,23 +261,17 @@ public final class SketchRenderer {
         begin(false);
         BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
                 DefaultVertexFormat.POSITION_COLOR);
-        Set<Element> models = new java.util.HashSet<>();
-        int budget = MAX_ITEM_MODELS;
+        List<Pending> quads = new ArrayList<>();
         try {
             for (Element e : list) {
                 emit(bb, pose, mesh(liveCache, e, pxPerBlock, liveKey(e)), e.x - camX, e.z - camZ, 0, alpha);
-                if (e.type == Element.Type.STAMP && stack(e.stamp) != null) {
-                    if (wantsModel(e, pxPerBlock) && budget-- > 0) models.add(e);
-                    else emit(bb, pose, tileMesh(e, pxPerBlock), e.x - camX, e.z - camZ, 0, alpha);
-                }
+                if (e.type == Element.Type.STAMP) stamp(bb, pose, quads, e, camX, camZ, pxPerBlock, 0, alpha);
             }
         } finally {
             end(bb, false);
         }
-        for (Element e : list) {
-            if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, 0.1f);
-            if (models.contains(e)) drawItem(g, e, camX, camZ, 0.1f, false);
-        }
+        drawQuads(pose, quads, camX, camZ, false);
+        for (Element e : list) if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, 0.1f);
         g.flush();
     }
 

@@ -70,7 +70,7 @@ public final class MapSketch {
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         // Optional both ways; client handlers sit behind lambdas so dedicated servers never load client classes.
-        event.registrar("4").optional()
+        event.registrar("5").optional()
                 .playToClient(ServerInfoPayload.TYPE, ServerInfoPayload.CODEC, (p, ctx) -> ClientStore.onInfo(p))
                 .playToClient(ElementsPayload.TYPE, ElementsPayload.CODEC, (p, ctx) -> ClientStore.onElements(p))
                 .playToClient(RemovePayload.TYPE, RemovePayload.CODEC, (p, ctx) -> ClientStore.onRemove(p))

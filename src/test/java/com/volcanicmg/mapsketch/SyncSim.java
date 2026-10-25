@@ -894,7 +894,15 @@ public final class SyncSim {
         Element relabel = next(ALICE, sym.id);
         relabel.stamp = "sym:nope";
         check(op(ALICE, relabel).equals("rejected:bad stamp"), "unknown symbol rejected");
-        pass("stamp validation", "symbol and registry item stamps accepted and broadcast; unknown items, air and symbols rejected, also as live ghosts");
+        Element deco = rect(ALICE), badDeco = rect(ALICE), newSym = rect(BOB);
+        deco.type = badDeco.type = newSym.type = Element.Type.STAMP;
+        deco.stamp = "deco:woodland_mansion";
+        badDeco.stamp = "deco:castle";
+        newSym.stamp = "sym:anchor";
+        check(op(ALICE, deco).equals("ok") && c(BOB).elements.get(deco.id).stamp.equals("deco:woodland_mansion"), "map icon stamp shared");
+        check(op(ALICE, badDeco).equals("rejected:bad stamp"), "unknown map icon rejected");
+        check(op(BOB, newSym).equals("ok"), "new pixel symbol accepted");
+        pass("stamp validation", "symbol, map icon and registry item stamps accepted and broadcast; unknown items, icons, air and symbols rejected, also as live ghosts");
     }
 
     /**

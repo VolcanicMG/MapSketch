@@ -26,6 +26,9 @@ public final class MapSketchClient {
         // Mods list > MapSketch > Config; shows server settings too when they are editable (singleplayer).
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         modBus.addListener(RegisterKeyMappingsEvent.class, e -> e.register(MapSketchKeys.TOGGLE));
+        // Resource reloads rebuild the atlases: cached stamp sprites must be looked up again.
+        modBus.addListener(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent.class, e -> e.registerReloadListener(
+                (net.minecraft.server.packs.resources.ResourceManagerReloadListener) rm -> StampArt.clear()));
         NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingIn.class,
                 e -> ClientStore.onLogin(e.getPlayer().connection.hasChannel(ElementsPayload.TYPE)));
         NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, e -> {

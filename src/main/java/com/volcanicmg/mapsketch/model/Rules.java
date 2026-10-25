@@ -8,6 +8,18 @@ public final class Rules {
     private Rules() {
     }
 
+    /**
+     * Vanilla map decoration sprites usable as {@code deco:<name>} stamps: the 1.21.1 {@code map_decorations} atlas
+     * ({@code textures/map/decorations/*.png}). Shared by client and server.
+     */
+    public static final java.util.List<String> DECORATIONS = java.util.List.of(
+            "player", "player_off_map", "player_off_limits", "frame", "red_marker", "blue_marker", "target_x",
+            "target_point", "red_x", "woodland_mansion", "ocean_monument", "trial_chambers", "jungle_temple", "swamp_hut",
+            "plains_village", "desert_village", "savanna_village", "snowy_village", "taiga_village",
+            "white_banner", "orange_banner", "magenta_banner", "light_blue_banner", "yellow_banner", "lime_banner",
+            "pink_banner", "gray_banner", "light_gray_banner", "cyan_banner", "purple_banner", "blue_banner",
+            "brown_banner", "green_banner", "red_banner", "black_banner");
+
     /** Thinnest stroke in blocks; keeps dash and hachure counts finite. */
     public static final float MIN_STROKE = 0.05f;
 
@@ -93,12 +105,13 @@ public final class Rules {
     }
 
     /**
-     * Stamp id syntax: {@code sym:<known symbol>} or {@code item:<namespace>:<path>} with resource-location
-     * characters. Whether an item id exists is checked by the server against its registry.
+     * Stamp id syntax: {@code sym:<pixel symbol>}, {@code deco:<vanilla map icon>} or {@code item:<namespace>:<path>}
+     * with resource-location characters. Whether an item id exists is checked by the server against its registry.
      */
     public static boolean validStamp(String id) {
         if (id == null || id.isEmpty() || id.length() > ElementCodec.MAX_STAMP) return false;
-        if (id.startsWith("sym:")) return com.volcanicmg.mapsketch.render.Symbols.has(id.substring(4));
+        if (id.startsWith("sym:")) return com.volcanicmg.mapsketch.render.PixelArt.has(id.substring(4));
+        if (id.startsWith("deco:")) return DECORATIONS.contains(id.substring(5));
         if (!id.startsWith("item:")) return false;
         String rl = id.substring(5);
         // Air has no icon: it would be an invisible, still selectable stamp.

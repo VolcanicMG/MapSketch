@@ -2,7 +2,7 @@ package com.volcanicmg.mapsketch.client;
 
 import com.volcanicmg.mapsketch.Config;
 import com.volcanicmg.mapsketch.model.Element;
-import com.volcanicmg.mapsketch.render.Symbols;
+import com.volcanicmg.mapsketch.render.PixelArt;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -160,7 +160,7 @@ final class StampPicker {
             }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
                 List<String> f = filtered();
-                for (String s : Symbols.names()) if (s.contains(search.toLowerCase(Locale.ROOT)) && !search.isEmpty()) {
+                for (String s : PixelArt.names()) if (s.contains(search.toLowerCase(Locale.ROOT)) && !search.isEmpty()) {
                     pick("sym:" + s);
                     return true;
                 }
@@ -205,7 +205,7 @@ final class StampPicker {
             yy += u(14);
             yy = label(g, font, "stamp_symbols", yy);
             List<String> syms = new ArrayList<>();
-            for (String s : Symbols.names()) syms.add("sym:" + s);
+            for (String s : PixelArt.names()) syms.add("sym:" + s);
             grid(g, syms, yy, 2, mouseX, mouseY);
             yy += 2 * c;
             yy = label(g, font, "stamp_recent", yy);

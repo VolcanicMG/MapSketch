@@ -61,6 +61,13 @@ tasks.register('syncSim', JavaExec) {
     jvmArgs '-ea'
 }
 tasks.named('check') { dependsOn 'selfCheck', 'syncSim' }
+// Preview PNG of the pixel stamps and vanilla map icons (not part of check).
+tasks.register('stampSheet', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.volcanicmg.mapsketch.StampSheet'
+    args = [project.findProperty('out') ?: "${buildDir}/stamps-sheet.png", project.findProperty('res') ?: '']
+    jvmArgs '-Djava.awt.headless=true'
+}
 // No JUnit tests; the self-check above is the test.
 tasks.named('test') { failOnNoDiscoveredTests = false }
 

@@ -407,17 +407,43 @@ public final class SelfCheck {
                 && !Rules.validStamp("item:a:b:c") && !Rules.validStamp("item::x") && !Rules.validStamp("item:a:")
                 && !Rules.validStamp("") && !Rules.validStamp("item:minecraft:air") && !Rules.validStamp("item:a:" + "x".repeat(130)) && !Rules.validStamp("url:http://x"),
                 "invalid stamp ids");
-        check(com.volcanicmg.mapsketch.render.Symbols.names().size() == 16, "16 symbols");
+        // Pixel symbols: the original 16 ids survive (saved stamps keep working), every grid is 16x16 in known tones,
+        // has an outline and a fill, and is not empty.
+        java.util.Set<String> names = com.volcanicmg.mapsketch.render.PixelArt.names();
+        for (String old : new String[]{"pin", "flag", "x", "star", "heart", "skull", "house", "tower", "sword", "pickaxe",
+                "chest", "tree", "cave", "portal", "question", "exclamation"})
+            check(names.contains(old), "original symbol kept: " + old);
+        check(names.size() == 24, "24 symbols");
         Rules.Limits lim = new Rules.Limits(100, 10);
         Element st = rect(0, 0, 20, 20);
         st.type = Element.Type.STAMP;
-        for (String name : com.volcanicmg.mapsketch.render.Symbols.names()) {
+        for (String name : names) {
+            String[] grid = com.volcanicmg.mapsketch.render.PixelArt.grid(name);
+            check(grid.length == 16, "16 rows: " + name);
+            int[] count = new int[4];
+            for (int y = 0; y < 16; y++) {
+                check(grid[y].length() == 16, "16 columns: " + name + " row " + y);
+                for (int x = 0; x < 16; x++) {
+                    char c = grid[y].charAt(x);
+                    check(c == '.' || com.volcanicmg.mapsketch.render.PixelArt.TONES.indexOf(c) >= 0, "known tone: " + name + " '" + c + "'");
+                    int t = com.volcanicmg.mapsketch.render.PixelArt.tone(grid, x, y);
+                    if (t >= 0) count[t]++;
+                }
+            }
+            check(count[0] > 0 && count[1] + count[2] + count[3] > 0 && count[0] + count[1] + count[2] + count[3] > 30, "outlined, coloured, not empty: " + name);
             st.stamp = "sym:" + name;
             check(Rules.validate(st, lim) == null, "symbol stamp validates: " + name);
-            Tessellator.Mesh m = Tessellator.tessellate(st, 1, 4);
-            check(m.count > 0, "symbol draws: " + name);
-            for (int i = 0; i < m.count * 2; i++) check(m.xy[i] >= -2 && m.xy[i] <= 22, "symbol inside its box: " + name);
+            check(Tessellator.tessellate(st, 1, 4).count == 0, "stamps are textured, not tessellated: " + name);
         }
+        // Tones: fixed dark outline, fill = tint, shade darker, highlight lighter; very dark tints lifted.
+        int[] red = com.volcanicmg.mapsketch.render.PixelArt.tones(0xE03131);
+        check(red[0] == 0x1B1B1B && red[2] == 0xE03131 && lum(red[1]) < lum(red[2]) && lum(red[3]) > lum(red[2]), "tone ramp");
+        int[] black = com.volcanicmg.mapsketch.render.PixelArt.tones(0x1E1E1E);
+        check(lum(black[2]) > lum(0x1B1B1B) + 40, "dark tints lifted above the outline");
+        // Vanilla map icons.
+        check(Rules.DECORATIONS.size() == 35 && Rules.validStamp("deco:red_x") && Rules.validStamp("deco:woodland_mansion")
+                && Rules.validStamp("deco:black_banner"), "map icons valid");
+        check(!Rules.validStamp("deco:nope") && !Rules.validStamp("deco:") && !Rules.validStamp("deco:RED_X"), "unknown map icons rejected");
         st.stamp = "item:minecraft:diamond";
         check(Rules.validate(st, lim) == null && Tessellator.tessellate(st, 1, 4).count == 0, "item stamps are not tessellated");
         check(Geometry.hit(st, 10, 10, 0.5), "stamps are hit inside their box");
@@ -429,6 +455,10 @@ public final class SelfCheck {
         st.stamp = "sym:star";
         Element back = ElementCodec.fromBytes(ElementCodec.toBytes(st));
         check(back.sameContent(st) && back.stamp.equals("sym:star"), "stamp codec round trip");
+    }
+
+    private static int lum(int rgb) {
+        return ((rgb >> 16 & 0xFF) * 299 + (rgb >> 8 & 0xFF) * 587 + (rgb & 0xFF) * 114) / 1000;
     }
 
     private static boolean near(double[] p, double x, double z) {

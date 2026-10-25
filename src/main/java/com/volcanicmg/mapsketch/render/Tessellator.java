@@ -58,11 +58,8 @@ public final class Tessellator {
         int stroke = withOpacity(e.stroke, e.opacity), fill = withOpacity(e.fill, e.opacity);
         int discSegs = (int) Math.max(6, Math.min(20, Math.round(width * pxPerBlock * 0.8)));
         if (e.type == Element.Type.TEXT) return m;
-        if (e.type == Element.Type.STAMP) {
-            symbol(m, e, width, stroke, discSegs);
-            rotate(m, e);
-            return m;
-        }
+        // Stamps are textured quads drawn by the client (pixel symbols, map icons, item sprites).
+        if (e.type == Element.Type.STAMP) return m;
         float[] outline = Geometry.outline(e);
         if (e.closed() && e.fillStyle != Element.FillStyle.NONE && (fill >>> 24) != 0) fill(m, e, outline, fill, width, rnd, discSegs);
         List<float[]> lines;
@@ -92,39 +89,6 @@ public final class Tessellator {
         }
         rotate(m, e);
         return m;
-    }
-
-    /** A built-in symbol stamp scaled to the element box; item stamps are drawn by the client as item icons. */
-    private static void symbol(Mesh m, Element e, double width, int c, int segs) {
-        if (!e.stamp.startsWith("sym:")) return;
-        Symbols.Symbol sym = Symbols.get(e.stamp.substring(4));
-        if (sym == null) return;
-        double w = Math.max(width, Math.min(e.w, e.h) * 0.08);
-        for (float[] poly : sym.fills()) {
-            float[] p = scale(poly, e.w, e.h);
-            double cx = 0, cz = 0;
-            int n = p.length / 2;
-            for (int i = 0; i < n; i++) {
-                cx += p[i * 2];
-                cz += p[i * 2 + 1];
-            }
-            cx /= n;
-            cz /= n;
-            for (int i = 0; i < n; i++) {
-                int j = (i + 1) % n;
-                m.tri(cx, cz, p[i * 2], p[i * 2 + 1], p[j * 2], p[j * 2 + 1], c);
-            }
-        }
-        for (float[] line : sym.strokes()) thick(m, scale(line, e.w, e.h), w, c, segs);
-    }
-
-    private static float[] scale(float[] p, double w, double h) {
-        float[] q = new float[p.length];
-        for (int i = 0; i < p.length; i += 2) {
-            q[i] = (float) (p[i] * w);
-            q[i + 1] = (float) (p[i + 1] * h);
-        }
-        return q;
     }
 
     public static int withOpacity(int argb, int opacity) {
