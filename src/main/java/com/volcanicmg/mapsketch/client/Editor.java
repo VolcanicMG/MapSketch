@@ -1,6 +1,7 @@
 package com.volcanicmg.mapsketch.client;
 
 import com.volcanicmg.mapsketch.Config;
+import com.volcanicmg.mapsketch.model.Bindings;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.FracIndex;
 import com.volcanicmg.mapsketch.model.Geometry;
@@ -291,12 +292,14 @@ public final class Editor {
             ClientStore.toast(net.minecraft.network.chat.Component.translatable("mapsketch.too_many_grab", SyncServer.MAX_LEASES));
             return false;
         }
+        // Copy first: optional may be the followable set, which releasing the previous lease would clear.
+        List<UUID> opt = new ArrayList<>(optional);
         releaseLease();
+        followable.addAll(opt);
         if (ids.isEmpty()) return true;
         gestureLease = ++leaseRequest;
         leased.addAll(ids);
         lastRenewMs = System.currentTimeMillis();
-        List<UUID> opt = new ArrayList<>(optional);
         if (ids.size() + opt.size() > SyncServer.MAX_LEASES) opt = opt.subList(0, SyncServer.MAX_LEASES - ids.size());
         ClientStore.lease(gestureLease, LeasePayload.Action.ACQUIRE, new ArrayList<>(ids), opt);
         return true;
@@ -401,7 +404,20 @@ public final class Editor {
             if (c.type == Element.Type.TEXT) fitText(c);
             if (!c.sameContent(e)) out.add(c);
         }
-        if (!out.isEmpty()) commit(out);
+        if (out.isEmpty()) return;
+        // Bound arrows follow moved shapes (nudges, resizes from the panel), in the same undo step and op.
+        if (view != null) {
+            Map<UUID, Element> targets = new HashMap<>();
+            for (Element c : out) if (!c.deleted) targets.put(c.id, c);
+            Set<UUID> ids = new HashSet<>(targets.keySet());
+            for (UUID id : Bindings.followers(ClientStore.sorted(view.dim()), ids)) {
+                Element a = live(id);
+                if (a == null || !canEdit(a) || ClientStore.heldBy(id) != null) continue;
+                Element f = Bindings.follow(a, targets, view.blocks(4));
+                if (!f.sameContent(a)) out.add(f);
+            }
+        }
+        commit(out);
     }
 
     // Live preview (colour picker): the state before it and the token of our preview copy, per element.
@@ -758,6 +774,8 @@ public final class Editor {
 
     /** Snapshots the editable selection for a grab and asks for its lease; false if someone else holds it. */
     private static boolean beginSnapshot() {
+        // The previous gesture's lease goes before this one's state is built.
+        releaseLease();
         snapshot.clear();
         followers.clear();
         followable.clear();
@@ -767,10 +785,10 @@ public final class Editor {
         }
         // Arrows bound to grabbed shapes follow them: lease them too where nobody else holds them (best effort).
         if (view != null)
-            for (Element a : ClientStore.sorted(view.dim()))
-                if (a.type == Element.Type.ARROW && !snapshot.containsKey(a.id) && canEdit(a) && ClientStore.heldBy(a.id) == null
-                        && (a.startBind != null && snapshot.containsKey(a.startBind) || a.endBind != null && snapshot.containsKey(a.endBind)))
-                    followable.add(a.id);
+            for (UUID id : Bindings.followers(ClientStore.sorted(view.dim()), snapshot.keySet())) {
+                Element a = live(id);
+                if (a != null && canEdit(a) && ClientStore.heldBy(id) == null) followable.add(id);
+            }
         if (beginLease(snapshot.keySet(), followable)) return true;
         snapshot.clear();
         followable.clear();
@@ -797,39 +815,32 @@ public final class Editor {
     private static void followBindings(boolean unbindMoved) {
         if (view == null) return;
         Set<UUID> moved = snapshot.keySet();
-        for (Element a : new ArrayList<>(ClientStore.sorted(view.dim()))) {
-            if (a.type != Element.Type.ARROW || a.startBind == null && a.endBind == null) continue;
-            boolean self = moved.contains(a.id);
-            boolean s = a.startBind != null && moved.contains(a.startBind), en = a.endBind != null && moved.contains(a.endBind);
-            if (self) {
-                if (!unbindMoved || (s || a.startBind == null) && (en || a.endBind == null)) continue;
-                Element c = a.copy();
-                if (!s) c.startBind = null;
-                if (!en) c.endBind = null;
-                ClientStore.local(c, false);
-                continue;
-            }
-            if (!(s || en) || !followable.contains(a.id)) continue;
-            followers.putIfAbsent(a.id, a.copy());
-            Element c = bake(a.copy());
-            if (s) snapEnd(c, true);
-            if (en) snapEnd(c, false);
+        Map<UUID, Element> targets = new HashMap<>();
+        for (UUID id : moved) {
+            Element t = live(id);
+            if (t != null) targets.put(id, t);
+        }
+        for (UUID id : moved) {
+            Element a = live(id);
+            if (a == null || !Bindings.binder(a) || !unbindMoved) continue;
+            boolean s = a.startBind == null || moved.contains(a.startBind), en = a.endBind == null || moved.contains(a.endBind);
+            if (s && en) continue;
+            Element c = a.copy();
+            if (!s) c.startBind = null;
+            if (!en) c.endBind = null;
             ClientStore.local(c, false);
+        }
+        for (UUID id : followable) {
+            Element a = live(id);
+            if (a == null) continue;
+            followers.putIfAbsent(id, a.copy());
+            ClientStore.local(Bindings.follow(a, targets, view.blocks(4)), false);
         }
     }
 
     /** Rewrites a linear element without rotation: origin at its first world point. */
     private static Element bake(Element e) {
-        if (e.angle == 0) return e;
-        float[] w = worldPoints(e);
-        e.angle = 0;
-        e.x = w[0];
-        e.z = w[1];
-        for (int i = 0; i < w.length; i += 2) {
-            e.pts[i] = (float) (w[i] - e.x);
-            e.pts[i + 1] = (float) (w[i + 1] - e.z);
-        }
-        return e;
+        return Bindings.bake(e);
     }
 
     /** @return points in world coordinates as doubles packed into floats relative to nothing (absolute) */
@@ -847,11 +858,7 @@ public final class Editor {
     private static void snapEnd(Element a, boolean start) {
         Element target = live(start ? a.startBind : a.endBind);
         if (target == null) return;
-        int n = a.pointCount(), i = start ? 0 : n - 1, j = start ? 1 : n - 2;
-        double fromX = a.x + a.pts[j * 2], fromZ = a.z + a.pts[j * 2 + 1];
-        double[] p = Geometry.bindPoint(target, fromX, fromZ, view == null ? 1 : view.blocks(4));
-        a.pts[i * 2] = (float) (p[0] - a.x);
-        a.pts[i * 2 + 1] = (float) (p[1] - a.z);
+        Bindings.place(a, start, target, view == null ? 1 : view.blocks(4));
         a.fitPoints();
     }
 

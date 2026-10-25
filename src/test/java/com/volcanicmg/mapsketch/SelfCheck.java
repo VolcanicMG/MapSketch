@@ -28,6 +28,7 @@ public final class SelfCheck {
         orderAtScale();
         tessellationCaps();
         colors();
+        follow();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -286,6 +287,46 @@ public final class SelfCheck {
         Element thin = rect(0, 0, 10, 10);
         thin.strokeWidth = 0.001f;
         check(Rules.validate(thin, new Rules.Limits(100, 10)) != null, "sub-minimum stroke rejected");
+    }
+
+    /** Bound arrows follow moved, resized, rotated targets at both ends (the bug Ethan hit in single-player). */
+    private static void follow() {
+        Element a = rect(10, 0, 10, 10), b = rect(40, 0, 10, 10);
+        Element arrow = rect(0, 5, 0, 0);
+        arrow.type = Element.Type.ARROW;
+        arrow.pts = new float[]{0, 0, 9, 0};
+        arrow.endBind = a.id;
+        arrow.fitPoints();
+        check(com.volcanicmg.mapsketch.model.Bindings.followers(java.util.List.of(a, b, arrow), java.util.Set.of(a.id)).equals(java.util.List.of(arrow.id)),
+                "the bound arrow is a follower");
+        check(com.volcanicmg.mapsketch.model.Bindings.followers(java.util.List.of(a, arrow), java.util.Set.of(a.id, arrow.id)).isEmpty(),
+                "an arrow moved with its target is not a follower");
+        Element moved = a.copy();
+        moved.x += 20;
+        Element f = com.volcanicmg.mapsketch.model.Bindings.follow(arrow, java.util.Map.of(a.id, moved), 1);
+        check(Math.abs(f.x + f.pts[2] - 29) < 1e-4 && Math.abs(f.z + f.pts[3] - 5) < 1e-4 && f.x == 0, "end follows a move: " + (f.x + f.pts[2]));
+        moved.w = 20;
+        moved.x = 30;
+        f = com.volcanicmg.mapsketch.model.Bindings.follow(arrow, java.util.Map.of(a.id, moved), 1);
+        check(Math.abs(f.x + f.pts[2] - 29) < 1e-4, "end follows a resize");
+        // Both ends bound, both targets move.
+        Element two = arrow.copy();
+        two.startBind = b.id;
+        two.pts = new float[]{0, 0, -21, 0};
+        two.x = 39;
+        Element mb = b.copy();
+        mb.z += 30;
+        Element ma = a.copy();
+        ma.z += 30;
+        f = com.volcanicmg.mapsketch.model.Bindings.follow(two, java.util.Map.of(a.id, ma, b.id, mb), 1);
+        check(Math.abs(f.z + f.pts[1] - 35) < 1e-4 && Math.abs(f.z + f.pts[3] - 35) < 1e-4, "both ends follow");
+        // A rotated target: the end lands on its rotated outline.
+        Element r = a.copy();
+        r.angle = (float) (Math.PI / 4);
+        f = com.volcanicmg.mapsketch.model.Bindings.follow(arrow, java.util.Map.of(a.id, r), 0);
+        double ex = f.x + f.pts[2], ez = f.z + f.pts[3];
+        double[] l = Geometry.toLocal(r, ex, ez);
+        check(Geometry.distToPolyline(Geometry.outline(r), true, l[0], l[1]) < 1e-3, "end on the rotated outline");
     }
 
     /** Colour picker maths: HSV and RGB round-trip, packing, hex. */

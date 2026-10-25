@@ -4,6 +4,9 @@
 
 First release.
 
+- Fix: arrows bound to a shape now follow it when it is moved, resized or rotated (the grab's lease request was
+  emptied before it was sent), and on arrow-key nudges, in the same undo step; arrows bound at both ends to moved
+  shapes aim centre to centre.
 - Colour picker for stroke and background: saturation/value square, hue and opacity bars, old/new preview,
   palette, 8 recent colours, hex field. Live preview on the selection; kept as one edit and one undo step.
 - Middle-mouse drag pans the world map with any tool (and outside draw mode). New shapes default to the

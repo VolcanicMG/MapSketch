@@ -176,6 +176,8 @@ public final class SyncSim {
         staleHolderOutline();
         groupInjection();
         rateLimitNoAmplification();
+        reset();
+        boundArrowFollows();
         System.out.println("SyncSim: " + passed + " scenarios passed");
     }
 
@@ -811,5 +813,54 @@ public final class SyncSim {
         server.edit(BOB, 100, dup);
         check(c(BOB).forced == forced + 1, "stale duplicates resynced once: " + (c(BOB).forced - forced));
         pass("rate-limit rejects", "no per-element resync on rate limiting (one throttled full resync instead); a repeated stale element resyncs once");
+    }
+
+    /**
+     * Regression for the single-player report: a bound arrow follows its moved shape. The editor's path: lease the
+     * shape with the arrow as an optional id (both granted), move the shape, {@code Bindings.follow} the arrow, send
+     * both in one op; the other player receives both; undo reverts both.
+     */
+    static void boundArrowFollows() {
+        Element box = rect(ALICE);
+        box.x = 10;
+        op(ALICE, box);
+        Element arrow = rect(ALICE);
+        arrow.type = Element.Type.ARROW;
+        arrow.w = arrow.h = 0;
+        arrow.pts = new float[]{0, 0, 5, 5};
+        arrow.endBind = box.id;
+        com.volcanicmg.mapsketch.model.Bindings.place(arrow, false, store.get(box.id), 1);
+        arrow.fitPoints();
+        check(op(ALICE, arrow).equals("ok"), "arrow created bound");
+        List<UUID> followers = com.volcanicmg.mapsketch.model.Bindings.followers(c(ALICE).elements.values(), Set.of(box.id));
+        check(followers.equals(List.of(arrow.id)), "editor finds the follower");
+        now += 60;
+        List<UUID> granted = server.acquire(ALICE, 5, List.of(box.id), followers);
+        check(granted.contains(box.id) && granted.contains(arrow.id), "shape and its arrow leased together: " + granted);
+        Element movedBox = next(ALICE, box.id);
+        movedBox.x += 30;
+        movedBox.z += 7;
+        Element followed = from(com.volcanicmg.mapsketch.model.Bindings.follow(c(ALICE).elements.get(arrow.id),
+                java.util.Map.of(box.id, movedBox), 1));
+        followed.version = c(ALICE).elements.get(arrow.id).version;
+        followed.baseNonce = c(ALICE).elements.get(arrow.id).nonce;
+        Element before = c(ALICE).elements.get(arrow.id).copy();
+        check(op(ALICE, movedBox, followed).equals("ok"), "one op with shape and arrow");
+        server.release(ALICE, List.of());
+        Element bobs = c(BOB).elements.get(arrow.id);
+        double[] want = com.volcanicmg.mapsketch.model.Geometry.bindPoint(store.get(box.id), bobs.x + bobs.pts[0], bobs.z + bobs.pts[1], 1);
+        check(Math.abs(bobs.x + bobs.pts[2] - want[0]) < 1e-3 && Math.abs(bobs.z + bobs.pts[3] - want[1]) < 1e-3
+                && Math.abs(want[0] - before.x - before.pts[2]) > 20, "Bob sees the arrow end at the moved box's outline");
+        check(c(BOB).elements.get(box.id).x == movedBox.x, "Bob sees the box moved");
+        // Undo (the editor's one step holds both): both go back.
+        Element undoBox = next(ALICE, box.id);
+        undoBox.x -= 30;
+        undoBox.z -= 7;
+        Element undoArrow = next(ALICE, arrow.id);
+        undoArrow.x = before.x;
+        undoArrow.z = before.z;
+        undoArrow.pts = before.pts.clone();
+        check(op(ALICE, undoBox, undoArrow).equals("ok") && java.util.Arrays.equals(c(BOB).elements.get(arrow.id).pts, before.pts), "undo reverts both");
+        pass("bound arrow follows", "a shape grab leases its bound arrows; the moved arrow is committed with the shape and broadcast; undo reverts both");
     }
 }
