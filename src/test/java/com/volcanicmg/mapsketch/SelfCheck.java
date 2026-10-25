@@ -10,6 +10,7 @@ import com.volcanicmg.mapsketch.model.Rules;
 import com.volcanicmg.mapsketch.render.Hints;
 import com.volcanicmg.mapsketch.render.PixelArt;
 import com.volcanicmg.mapsketch.render.Rough;
+import com.volcanicmg.mapsketch.render.StampCache;
 import com.volcanicmg.mapsketch.render.UiIconArt;
 import com.volcanicmg.mapsketch.render.Tessellator;
 import java.util.Arrays;
@@ -38,6 +39,7 @@ public final class SelfCheck {
         textBackground();
         uiIcons();
         hints();
+        stampCache();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -568,6 +570,27 @@ public final class SelfCheck {
             }
             check(l.height() > 0, "hints height: " + id);
         }
+    }
+
+    /** Stamp art cache: hits and misses resolved once, a throwing id fails alone and is not retried, clear forgets. */
+    private static void stampCache() {
+        StampCache<String> c = new StampCache<>();
+        int[] loads = {0}, failures = {0};
+        StampCache.Loader<String> loader = id -> {
+            loads[0]++;
+            if (id.equals("item:bad")) throw new IllegalStateException("bad model");
+            return id.equals("item:missing") ? null : "art:" + id;
+        };
+        for (int k = 0; k < 3; k++) {
+            check("art:item:a".equals(c.get("item:a", loader, t -> failures[0]++)), "cache hit");
+            check(c.get("item:missing", loader, t -> failures[0]++) == null, "cache miss");
+            check(c.get("item:bad", loader, t -> failures[0]++) == null, "failed id draws a tile");
+        }
+        check(loads[0] == 3 && failures[0] == 1 && c.size() == 3, "each id resolved once, failure logged once: " + loads[0] + "/" + failures[0]);
+        check("art:item:b".equals(c.get("item:b", loader, t -> failures[0]++)), "other ids unaffected by a failure");
+        c.clear();
+        c.get("item:a", loader, t -> failures[0]++);
+        check(loads[0] == 5 && c.size() == 1, "clear forgets hits, misses and failures");
     }
 
     private static int lum(int rgb) {

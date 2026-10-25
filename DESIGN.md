@@ -13,7 +13,7 @@ Not a raster paint tool: every drawing is a vector element that can be selected,
 | Package | Minecraft? | What |
 |---|---|---|
 | `model` | no | `Element`, `ElementCodec` (one byte encoding for wire and disk), `Rules`, `Geometry`, `FracIndex` |
-| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `UiIconArt` (16x16 pixel UI icons), `PanelLayout` (panel/toolbar geometry and colours), `Hints` (controls guide content + layout) |
+| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `UiIconArt` (16x16 pixel UI icons), `PanelLayout` (panel/toolbar geometry and colours), `Hints` (controls guide content + layout), `StampCache` (per-id stamp art cache: hits, misses, failures) |
 | `sync` | no | `SyncServer` (the server state machine), `ElementStore`, `Live`, `Outbox`, `TokenBucket` |
 | `net` | yes | payloads |
 | `server` | yes | `SketchServer` adapter, `SketchData` (SavedData), `SketchCommands`, `FtbTeamsCompat` |

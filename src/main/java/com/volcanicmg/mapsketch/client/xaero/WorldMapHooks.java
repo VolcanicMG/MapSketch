@@ -38,12 +38,14 @@ public final class WorldMapHooks {
             if (e.getScreen() instanceof GuiWorldMapSettings) ConfigButton.add(e, container);
             if (e.getScreen() instanceof GuiMap) Editor.onMapOpened();
         }));
-        NeoForge.EVENT_BUS.addListener(ScreenEvent.Closing.class, safe(e -> {
-            if (e.getScreen() instanceof GuiMap) {
-                middlePan = false;
-                Editor.onMapClosed();
-            }
-        }));
+        // Middle-pan cleanup runs outside safe(): even after a failure Xaero must not keep panning.
+        var closing = safe((ScreenEvent.Closing e) -> {
+            if (e.getScreen() instanceof GuiMap) Editor.onMapClosed();
+        });
+        NeoForge.EVENT_BUS.addListener(ScreenEvent.Closing.class, (ScreenEvent.Closing e) -> {
+            if (e.getScreen() instanceof GuiMap) endMiddlePan(e.getScreen());
+            closing.accept(e);
+        });
         NeoForge.EVENT_BUS.addListener(ScreenEvent.Render.Post.class, safe(WorldMapHooks::onRender));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseButtonPressed.Pre.class, safe(e -> {
             MapView v = viewOf(e.getScreen());
@@ -58,16 +60,18 @@ public final class WorldMapHooks {
             }
             if (Editor.mousePressed(v, e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
         }));
-        NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseButtonReleased.Pre.class, safe(e -> {
+        var released = safe((ScreenEvent.MouseButtonReleased.Pre e) -> {
             MapView v = viewOf(e.getScreen());
-            if (v != null && middlePan && e.getButton() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
-                middlePan = false;
-                ((GuiMapAccessor) e.getScreen()).mapsketch$leftMouseButton().isDown = false;
+            if (v != null && Editor.mouseReleased(v, e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
+        });
+        NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseButtonReleased.Pre.class, (ScreenEvent.MouseButtonReleased.Pre e) -> {
+            if (middlePan && e.getButton() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && e.getScreen() instanceof GuiMap) {
+                endMiddlePan(e.getScreen());
                 e.setCanceled(true);
                 return;
             }
-            if (v != null && Editor.mouseReleased(v, e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
-        }));
+            released.accept(e);
+        });
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseDragged.Pre.class, safe(e -> {
             MapView v = viewOf(e.getScreen());
             if (v != null && Editor.mouseDragged(v, e.getMouseX(), e.getMouseY(), e.getMouseButton())) e.setCanceled(true);
@@ -89,8 +93,10 @@ public final class WorldMapHooks {
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.KeyReleased.Pre.class, safe(e -> {
             if (!(e.getScreen() instanceof GuiMap)) return;
-            // Xaero fires some map keybinds on release: releases while typing are ours too.
-            if (Editor.isTyping() || Editor.keyReleased(e.getKeyCode())) e.setCanceled(true);
+            // Xaero fires some map keybinds on release: releases while typing are ours too. Always let the editor see the
+            // release first (a Space released while typing must still end Space-panning).
+            boolean ours = Editor.keyReleased(e.getKeyCode());
+            if (ours || Editor.isTyping()) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.CharacterTyped.Pre.class, safe(e -> {
             if (!(e.getScreen() instanceof GuiMap)) return;
@@ -116,9 +122,21 @@ public final class WorldMapHooks {
         };
     }
 
+    /** Ends a middle-button pan: Xaero's left button goes up again. Never throws. */
+    private static void endMiddlePan(Screen screen) {
+        if (!middlePan) return;
+        middlePan = false;
+        try {
+            if (screen instanceof GuiMap) ((GuiMapAccessor) screen).mapsketch$leftMouseButton().isDown = false;
+        } catch (Throwable t) {
+            MapSketch.LOGGER.warn("MapSketch could not end a middle-button pan", t);
+        }
+    }
+
     private static void fail(Throwable t) {
         if (broken) return;
         broken = true;
+        endMiddlePan(net.minecraft.client.Minecraft.getInstance().screen);
         MapSketch.LOGGER.error("MapSketch world map layer failed; disabled for this session", t);
     }
 

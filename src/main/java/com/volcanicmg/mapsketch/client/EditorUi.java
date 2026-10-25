@@ -511,14 +511,18 @@ public final class EditorUi {
         if (panelW > 0) {
             VanillaUi.panel(g, panelX, panelY, panelW, panelH);
             g.enableScissor(panelX + 3, panelY + 3, panelX + panelW - 3, panelY + panelH - 3);
-            for (int i = 0; i < labels.size(); i++)
-                g.drawString(font, Component.translatable("mapsketch.ui." + labelKeys.get(i)), labels.get(i)[0] + 1, labels.get(i)[1], PanelLayout.LABEL, false);
-            boolean sliderHover = sliderDrag || mx >= sliderX && mx < sliderX + sliderW && my >= sliderY && my < sliderY + sliderH && inPanelView(my);
-            VanillaUi.slider(g, sliderX, sliderY, sliderW, sliderH, Editor.style.opacity / 100.0, sliderHover);
-            Component op = Component.translatable("mapsketch.ui.opacity_value", Editor.style.opacity);
-            g.drawCenteredString(font, op, sliderX + sliderW / 2, sliderY + (sliderH - 8) / 2, sliderHover ? 0xFFFFFFA0 : 0xFFFFFFFF);
-            buttons(g, true, mx, my);
-            g.disableScissor();
+            // Always pop the scissor: a throw here must not leave Xaero's map clipped for the session.
+            try {
+                for (int i = 0; i < labels.size(); i++)
+                    g.drawString(font, Component.translatable("mapsketch.ui." + labelKeys.get(i)), labels.get(i)[0] + 1, labels.get(i)[1], PanelLayout.LABEL, false);
+                boolean sliderHover = sliderDrag || mx >= sliderX && mx < sliderX + sliderW && my >= sliderY && my < sliderY + sliderH && inPanelView(my);
+                VanillaUi.slider(g, sliderX, sliderY, sliderW, sliderH, Editor.style.opacity / 100.0, sliderHover);
+                Component op = Component.translatable("mapsketch.ui.opacity_value", Editor.style.opacity);
+                g.drawCenteredString(font, op, sliderX + sliderW / 2, sliderY + (sliderH - 8) / 2, sliderHover ? 0xFFFFFFA0 : 0xFFFFFFFF);
+                buttons(g, true, mx, my);
+            } finally {
+                g.disableScissor();
+            }
             if (panelContentH > panelH) {
                 int track = panelH - 8, thumb = Math.max(12, track * panelH / panelContentH);
                 int ty = panelY + 4 + (track - thumb) * panelScroll / (panelContentH - panelH);

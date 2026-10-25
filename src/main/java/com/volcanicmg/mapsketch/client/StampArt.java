@@ -4,11 +4,10 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.volcanicmg.mapsketch.MapSketch;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.render.PixelArt;
+import com.volcanicmg.mapsketch.render.StampCache;
 import com.volcanicmg.mapsketch.render.Tessellator;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -24,8 +23,8 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Where a stamp's pixels come from, as textured layers: pixel symbols from our baked tone-mask texture (four layers
  * tinted outline/shade/fill/highlight), map icons from the vanilla {@code map_decorations} atlas, items from their
- * flat sprite in the block/item atlas. Every stamp is drawn as flat quads (no item-model rendering). Sprites are
- * cached per id (bounded by the registries) and cleared on resource reload.
+ * flat sprite in the block/item atlas. Every stamp is drawn as flat quads (no item-model rendering). Sprites (and
+ * misses) are cached per id (bounded by the registries) and cleared on resource reload.
  */
 final class StampArt {
     /** One textured quad over the element box, drawn in {@code argb}. */
@@ -39,40 +38,49 @@ final class StampArt {
     private record Tinted(TextureAtlasSprite sprite, int argb, float[] crop) {
     }
 
-    // Per stamp id (bounded by the registries), cleared on resource reload.
-    private static final Map<String, List<Tinted>> sprites = new HashMap<>();
+    // Item and map-icon sprites per stamp id; a failing id draws as a tile without affecting the others.
+    private static final StampCache<List<Tinted>> sprites = new StampCache<>();
     private static List<String> symbolRows;
-    private static boolean failed;
+    private static boolean symbolsFailed, reloading;
 
     private StampArt() {
     }
 
-    /** Resource reload: atlases were rebuilt, sprites move. */
+    /** Resource reload: atlases are being rebuilt, sprites move. Cleared again until the reload overlay is gone. */
     static void clear() {
         sprites.clear();
+        reloading = true;
     }
 
     /** @return the layers of a stamp in its current colours, or null (draw a tile instead) */
     static List<Layer> layers(Element e) {
-        if (failed) return null;
-        try {
-            if (e.stamp.startsWith("sym:")) return symbol(e.stamp.substring(4), e.stroke, e.opacity);
-            List<Tinted> tinted = e.stamp.startsWith("item:") ? itemLayers(e.stamp) : deco(e.stamp);
-            if (tinted == null) return null;
-            List<Layer> out = new ArrayList<>(tinted.size());
-            for (Tinted t : tinted) {
-                TextureAtlasSprite s = t.sprite();
-                float[] c = t.crop() != null ? t.crop() : new float[]{0, 0, 1, 1};
-                float du = s.getU1() - s.getU0(), dv = s.getV1() - s.getV0();
-                out.add(new Layer(s.atlasLocation(), s.getU0() + du * c[0], s.getV0() + dv * c[1], s.getU0() + du * c[2],
-                        s.getV0() + dv * c[3], Tessellator.withOpacity(t.argb(), e.opacity)));
-            }
-            return out;
-        } catch (Throwable t) {
-            failed = true;
-            MapSketch.LOGGER.error("MapSketch cannot texture stamps; drawing tiles instead", t);
-            return null;
+        // A frame during the reload could cache sprites from the old atlas: keep forgetting until it has finished.
+        if (reloading) {
+            sprites.clear();
+            if (Minecraft.getInstance().getOverlay() == null) reloading = false;
         }
+        if (e.stamp.startsWith("sym:")) {
+            if (symbolsFailed) return null;
+            try {
+                return symbol(e.stamp.substring(4), e.stroke, e.opacity);
+            } catch (Throwable t) {
+                symbolsFailed = true;
+                MapSketch.LOGGER.error("MapSketch cannot texture symbol stamps; drawing tiles instead", t);
+                return null;
+            }
+        }
+        List<Tinted> tinted = sprites.get(e.stamp, id -> id.startsWith("item:") ? itemLayers(id) : deco(id),
+                t -> MapSketch.LOGGER.error("MapSketch cannot texture stamp {}; drawing a tile instead", e.stamp, t));
+        if (tinted == null) return null;
+        List<Layer> out = new ArrayList<>(tinted.size());
+        for (Tinted t : tinted) {
+            TextureAtlasSprite s = t.sprite();
+            float[] c = t.crop() != null ? t.crop() : new float[]{0, 0, 1, 1};
+            float du = s.getU1() - s.getU0(), dv = s.getV1() - s.getV0();
+            out.add(new Layer(s.atlasLocation(), s.getU0() + du * c[0], s.getV0() + dv * c[1], s.getU0() + du * c[2],
+                    s.getV0() + dv * c[3], Tessellator.withOpacity(t.argb(), e.opacity)));
+        }
+        return out;
     }
 
     /** Four tone layers of a pixel symbol: column {@code tone} of our mask texture, row of the symbol. */
@@ -112,17 +120,13 @@ final class StampArt {
 
     /** @return the map icon's sprite as one untinted layer, or null when missing */
     private static List<Tinted> deco(String stamp) {
-        List<Tinted> cached = sprites.get(stamp);
-        if (cached != null) return cached;
         if (!com.volcanicmg.mapsketch.model.Rules.DECORATIONS.contains(stamp.substring(5))) return null;
         AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(DECO_ATLAS);
         if (!(t instanceof TextureAtlas atlas)) return null;
         t.setFilter(false, false);
         TextureAtlasSprite s = atlas.getSprite(ResourceLocation.withDefaultNamespace(stamp.substring(5)));
         if (missing(s)) return null;
-        List<Tinted> out = List.of(new Tinted(s, 0xFFFFFFFF, crop(s)));
-        sprites.put(stamp, out);
-        return out;
+        return List.of(new Tinted(s, 0xFFFFFFFF, crop(s)));
     }
 
     /**
@@ -155,8 +159,6 @@ final class StampArt {
      * @return the layers, or null when the item has no usable texture
      */
     private static List<Tinted> itemLayers(String stamp) {
-        List<Tinted> cached = sprites.get(stamp);
-        if (cached != null) return cached;
         ItemStack st = SketchRenderer.stack(stamp);
         if (st == null) return null;
         BakedModel model = Minecraft.getInstance().getItemRenderer().getModel(st, null, null, 0);
@@ -181,9 +183,7 @@ final class StampArt {
             if (missing(p)) return null;
             out.add(new Tinted(p, 0xFFFFFFFF, null));
         }
-        out = List.copyOf(out);
-        sprites.put(stamp, out);
-        return out;
+        return List.copyOf(out);
     }
 
     private static boolean missing(TextureAtlasSprite s) {

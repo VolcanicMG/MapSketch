@@ -12,6 +12,11 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Review fixes: the panel's scissor is always popped (a failure can no longer leave Xaero's map clipped); a middle-
+  button pan always ends on release or when the map closes, even after the map layer was disabled by an error; a Space
+  released while typing still ends Space-panning; a stamp whose item or icon fails to texture now draws as a tile on
+  its own instead of turning every stamp into tiles; missing sprites are cached instead of looked up every frame;
+  stamp sprites are re-resolved once a resource reload has fully finished.
 - Controls guide: in draw mode a "Controls" panel docks top-right on the world map (below Xaero's widgets there)
   with key caps for the current tool or state (Select, each shape tool, Arrow/Line, Pen, Text, Stamp, Eraser, Laser,
   Hand; "Attaching the end" while an arrow end is placed near a shape, "Typing" while editing text) and the general
