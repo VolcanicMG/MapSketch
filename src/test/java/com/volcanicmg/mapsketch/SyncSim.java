@@ -184,6 +184,7 @@ public final class SyncSim {
         reset();
         boundArrowFollows();
         stampValidation();
+        concurrentNudgesShareArrow();
         System.out.println("SyncSim: " + passed + " scenarios passed");
     }
 
@@ -894,5 +895,50 @@ public final class SyncSim {
         relabel.stamp = "sym:nope";
         check(op(ALICE, relabel).equals("rejected:bad stamp"), "unknown symbol rejected");
         pass("stamp validation", "symbol and registry item stamps accepted and broadcast; unknown items, air and symbols rejected, also as live ghosts");
+    }
+
+    /**
+     * Two players nudge the two shapes an arrow connects at the same time. The second arrow edit is stale; the editor
+     * re-follows from the resynced arrow (as Editor.refollow does) and both ends end up attached.
+     */
+    static void concurrentNudgesShareArrow() {
+        Element left = rect(ALICE), right = rect(BOB);
+        left.x = 0;
+        right.x = 60;
+        op(ALICE, left);
+        op(BOB, right);
+        Element arrow = rect(ALICE);
+        arrow.type = Element.Type.ARROW;
+        arrow.w = arrow.h = 0;
+        arrow.x = 12;
+        arrow.z = 5;
+        arrow.pts = new float[]{0, 0, 46, 0};
+        arrow.startBind = left.id;
+        arrow.endBind = right.id;
+        op(ALICE, arrow);
+        // Alice nudges the left box down, Bob the right box down, both from arrow version 1.
+        Element l2 = next(ALICE, left.id), r2 = next(BOB, right.id);
+        l2.z += 20;
+        r2.z += 30;
+        Element aliceArrow = from(com.volcanicmg.mapsketch.model.Bindings.follow(c(ALICE).elements.get(arrow.id), java.util.Map.of(left.id, l2), 1));
+        aliceArrow.version = c(ALICE).elements.get(arrow.id).version;
+        aliceArrow.baseNonce = c(ALICE).elements.get(arrow.id).nonce;
+        Element bobArrow = from(com.volcanicmg.mapsketch.model.Bindings.follow(c(BOB).elements.get(arrow.id), java.util.Map.of(right.id, r2), 1));
+        bobArrow.version = c(BOB).elements.get(arrow.id).version;
+        bobArrow.baseNonce = c(BOB).elements.get(arrow.id).nonce;
+        check(op(ALICE, l2, aliceArrow).equals("ok"), "Alice's nudge lands");
+        check(op(BOB, r2, bobArrow).equals("rejected:stale"), "Bob's arrow edit is stale (his box moved)");
+        // Bob's editor re-follows from the server's arrow with both shapes as they are now.
+        Element resynced = c(BOB).elements.get(arrow.id);
+        Element refollow = from(com.volcanicmg.mapsketch.model.Bindings.follow(resynced,
+                java.util.Map.of(left.id, store.get(left.id), right.id, store.get(right.id)), 1));
+        refollow.version = resynced.version;
+        refollow.baseNonce = resynced.nonce;
+        check(op(BOB, refollow).equals("ok"), "re-follow accepted");
+        Element fin = store.get(arrow.id);
+        double sz = fin.z + fin.pts[1], ez = fin.z + fin.pts[3];
+        check(sz > 20 && sz < 30 && ez > 30 && ez < 40, "both ends attached to the moved boxes: " + sz + " " + ez);
+        check(java.util.Arrays.equals(c(ALICE).elements.get(arrow.id).pts, fin.pts), "Alice sees the final arrow");
+        pass("concurrent nudges share an arrow", "the stale arrow edit is re-followed from the server state, so neither end is left detached");
     }
 }

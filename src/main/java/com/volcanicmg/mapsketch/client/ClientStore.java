@@ -162,7 +162,7 @@ public final class ClientStore {
         }
         if (p.rejected().isEmpty()) return;
         toast(reasonText(p.reason()));
-        Editor.onRejected(p.rejected());
+        Editor.onRejected(p.rejected(), p.reason());
     }
 
     public static void onLeaseReply(LeaseReplyPayload p) {

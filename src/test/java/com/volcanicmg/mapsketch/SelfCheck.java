@@ -323,6 +323,16 @@ public final class SelfCheck {
         ma.z += 30;
         f = com.volcanicmg.mapsketch.model.Bindings.follow(two, java.util.Map.of(a.id, ma, b.id, mb), 1);
         check(Math.abs(f.z + f.pts[1] - 35) < 1e-4 && Math.abs(f.z + f.pts[3] - 35) < 1e-4, "both ends follow");
+        // Style-only edits are not geometry changes; the edge gap comes from the arrow, not the viewer's zoom.
+        Element styled = a.copy();
+        styled.stroke = 0xFF00FF00;
+        styled.strokeWidth = 3;
+        check(com.volcanicmg.mapsketch.model.Bindings.sameGeometry(a, styled) && !com.volcanicmg.mapsketch.model.Bindings.sameGeometry(a, moved),
+                "geometry vs style");
+        Element thick = arrow.copy();
+        thick.strokeWidth = 2;
+        check(com.volcanicmg.mapsketch.model.Bindings.gap(thick) == 4 && com.volcanicmg.mapsketch.model.Bindings.gap(arrow) == 2,
+                "edge gap from the arrow's stroke");
         // A rotated target: the end lands on its rotated outline.
         Element r = a.copy();
         r.angle = (float) (Math.PI / 4);

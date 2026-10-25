@@ -25,6 +25,19 @@ public final class Bindings {
         return a.type == Element.Type.ARROW || a.type == Element.Type.LINE;
     }
 
+    /**
+     * Gap an edge-bound end keeps from the outline, in blocks. Derived from the arrow's own stroke width (fixed at
+     * creation, scaled to the zoom it was drawn at), so every viewer computes the same follow at any zoom.
+     */
+    public static double gap(Element arrow) {
+        return Math.max(0.25, arrow.strokeWidth * 2);
+    }
+
+    /** @return true if the fields a binding depends on (position, size, rotation, points) are equal */
+    public static boolean sameGeometry(Element a, Element b) {
+        return a.x == b.x && a.z == b.z && a.w == b.w && a.h == b.h && a.angle == b.angle && java.util.Arrays.equals(a.pts, b.pts);
+    }
+
     /** @return ids of arrows/lines (not in {@code moved}) bound at either end to something in {@code moved} */
     public static List<UUID> followers(Collection<Element> all, Set<UUID> moved) {
         List<UUID> out = new ArrayList<>();

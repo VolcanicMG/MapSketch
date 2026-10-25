@@ -208,8 +208,31 @@ public final class Editor {
     }
 
     /** The server refused part of an op (it already resynced those elements). */
-    static void onRejected(List<UUID> ids) {
+    static void onRejected(List<UUID> ids, String reason) {
         onRemoteChange(ids);
+        if ("stale".equals(reason)) refollow(ids);
+    }
+
+    // Arrows already re-followed since the user's last edit: a second stale reject is left alone (no ping-pong).
+    private static final Set<UUID> refollowed = new HashSet<>();
+
+    /**
+     * A bound arrow we edited lost a race (someone else moved it, or the shape at its other end, first): the store
+     * now holds the server's state, so follow its targets again from there and resend, once per arrow per edit.
+     */
+    private static void refollow(List<UUID> ids) {
+        for (UUID id : ids) {
+            Element a = live(id);
+            if (a == null || !Bindings.binder(a) || !canEdit(a) || ClientStore.heldBy(id) != null || !refollowed.add(id)) continue;
+            Map<UUID, Element> targets = new HashMap<>();
+            for (UUID t : new UUID[]{a.startBind, a.endBind}) {
+                Element te = t == null ? null : live(t);
+                if (te != null) targets.put(t, te);
+            }
+            if (targets.isEmpty()) continue;
+            Element f = Bindings.follow(a, targets, Bindings.gap(a));
+            if (!f.sameContent(a)) ClientStore.local(f, true);
+        }
     }
 
     /**
@@ -395,6 +418,7 @@ public final class Editor {
     }
 
     private static void record(List<Change> changes) {
+        refollowed.clear();
         if (changes.isEmpty()) return;
         undo.push(changes);
         if (undo.size() > 100) undo.removeLast();
@@ -415,13 +439,17 @@ public final class Editor {
         if (out.isEmpty()) return;
         // Bound arrows follow moved shapes (nudges, resizes from the panel), in the same undo step and op.
         if (view != null) {
+            // Only targets whose geometry changed: style edits (width, opacity, colour) never touch bound arrows.
             Map<UUID, Element> targets = new HashMap<>();
-            for (Element c : out) if (!c.deleted) targets.put(c.id, c);
+            for (Element c : out) {
+                Element was = live(c.id);
+                if (!c.deleted && was != null && !Bindings.sameGeometry(c, was)) targets.put(c.id, c);
+            }
             Set<UUID> ids = new HashSet<>(targets.keySet());
             for (UUID id : Bindings.followers(ClientStore.sorted(view.dim()), ids)) {
                 Element a = live(id);
                 if (a == null || !canEdit(a) || ClientStore.heldBy(id) != null) continue;
-                Element f = Bindings.follow(a, targets, view.blocks(4));
+                Element f = Bindings.follow(a, targets, Bindings.gap(a));
                 if (!f.sameContent(a)) out.add(f);
             }
         }
@@ -876,7 +904,7 @@ public final class Editor {
             Element a = live(id);
             if (a == null) continue;
             followers.putIfAbsent(id, a.copy());
-            ClientStore.local(Bindings.follow(a, targets, view.blocks(4)), false);
+            ClientStore.local(Bindings.follow(a, targets, Bindings.gap(a)), false);
         }
     }
 
@@ -900,7 +928,7 @@ public final class Editor {
     private static void snapEnd(Element a, boolean start) {
         Element target = live(start ? a.startBind : a.endBind);
         if (target == null) return;
-        Bindings.place(a, start, target, view == null ? 1 : view.blocks(4));
+        Bindings.place(a, start, target, Bindings.gap(a));
         a.fitPoints();
     }
 
@@ -915,7 +943,7 @@ public final class Editor {
         bake(a);
         int n = a.pointCount(), i = start ? 0 : n - 1;
         Bindings.Pick p = Screen.hasControlDown() ? null : pickAt(a.id, a.x + a.pts[i * 2], a.z + a.pts[i * 2 + 1]);
-        Bindings.bind(a, start, p == null ? null : p.target(), p == null ? null : p.hit(), view == null ? 1 : view.blocks(4));
+        Bindings.bind(a, start, p == null ? null : p.target(), p == null ? null : p.hit(), Bindings.gap(a));
         a.fitPoints();
     }
 
