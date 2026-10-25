@@ -13,7 +13,7 @@ Not a raster paint tool: every drawing is a vector element that can be selected,
 | Package | Minecraft? | What |
 |---|---|---|
 | `model` | no | `Element`, `ElementCodec` (one byte encoding for wire and disk), `Rules`, `Geometry`, `FracIndex` |
-| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `IconAtlas` (UI icon atlas layout) |
+| `render` | no | `Tessellator` (element → triangles), `Rough` (hand-drawn wobble), `IconAtlas` (UI icon atlas layout), `PanelLayout` (panel/toolbar geometry and colours) |
 | `sync` | no | `SyncServer` (the server state machine), `ElementStore`, `Live`, `Outbox`, `TokenBucket` |
 | `net` | yes | payloads |
 | `server` | yes | `SketchServer` adapter, `SketchData` (SavedData), `SketchCommands`, `FtbTeamsCompat` |
@@ -183,7 +183,9 @@ covered by `SelfCheck` / the comparator).
   leases and live state.
 - `Editor`: draw mode, tools, selection, transforms, leases, live sending, text editing, binding, clipboard, undo/redo.
 - `EditorUi`: toolbar (top centre, below Xaero's coordinates), properties panel (left, below Xaero's settings
-  button), selection frames, handles, remote cursors, lease outlines, toasts. Rebuilt from state every frame.
+  button), selection frames, handles, remote cursors, lease outlines, toasts. Rebuilt from state every frame. Panel
+  rows come from the pure `PanelLayout`, which the offline `PanelPreview` (`./gradlew panelPreview`) also uses; the
+  panel is clipped (scissor) to the screen height and scrolls with the wheel.
 - `UiIcons`: toolbar/panel icons from `textures/gui/icons.png`, a white alpha atlas (64 px cells, 4 px margin)
   rasterized at build time from `icons/svg/*.svg` (Excalidraw/Tabler line icons) by `IconAtlasGen` in test sources
   (`./gradlew iconAtlas`; `selfCheck` re-rasterizes and fails if the committed atlas is stale). The client never

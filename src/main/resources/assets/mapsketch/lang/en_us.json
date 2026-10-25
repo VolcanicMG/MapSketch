@@ -144,5 +144,6 @@
   "mapsketch.ui.font_xl": "Extra large",
   "mapsketch.ui.vis_private": "Only me",
   "mapsketch.ui.vis_team": "My team",
-  "mapsketch.ui.vis_public": "Everyone"
+  "mapsketch.ui.vis_public": "Everyone",
+  "mapsketch.ui.vis_team_unavailable": "Team needs FTB Teams on the server"
 }

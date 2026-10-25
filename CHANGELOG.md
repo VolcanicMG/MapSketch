@@ -17,6 +17,12 @@ First release.
   filtering and mipmaps, tinted dark normally and accent-blue when selected, at 65% of the button. Text sizes show
   S / M / L / XL; the stamp picker's clear and page buttons use the same icons. `./gradlew iconSheet` renders a
   contact sheet. Tooltips on every button; start arrowheads are mirrored.
+- Properties panel layout pass, Excalidraw-like: section labels in one size and colour, equal-width buttons per
+  row with one height and spacing, selected = light accent background + accent border, hover and disabled states,
+  colour rows as swatches plus the current-colour chip. "Visible to" is text (Only me / Team / Everyone); Team is
+  disabled with a tooltip when the server has no FTB Teams. The panel sits below the toolbar and scrolls with the
+  mouse wheel when taller than the screen (the wheel over it never zooms the map). `./gradlew panelPreview` renders
+  an offline mock of the toolbar and panel at UI scale 1 and 2.
 - Text background: text can have a padded background box (colour from the panel's Text background row, none or
   solid; round or sharp edges; follows opacity and rotation; included in selection and hit-testing). Default is no
   box.

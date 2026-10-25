@@ -5,10 +5,12 @@ import com.volcanicmg.mapsketch.model.Bindings;
 import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.model.Geometry;
 import com.volcanicmg.mapsketch.net.ServerInfoPayload;
+import com.volcanicmg.mapsketch.render.PanelLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -20,24 +22,28 @@ import org.lwjgl.glfw.GLFW;
  * Widgets are rebuilt every frame from the editor state, so there is no widget state to keep in sync.
  */
 public final class EditorUi {
-    private static final int BG = 0xE0FFFFFF, BORDER = 0xFF9AA0A6, ACTIVE = 0xFFC9D7FF, ACCENT = 0xFF4C6EF5, TEXT = 0xFF1E1E1E;
+    private static final int ACTIVE = 0xFFC9D7FF, ACCENT = PanelLayout.ACCENT;
     static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
     static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
     // Atlas icons (UiIcons), in Tool order.
     private static final String[] TOOL_GLYPHS = {"#hand", "#select", "#rectangle", "#diamond", "#ellipse", "#arrow", "#line",
             "#pen", "#text", "#stamp", "#eraser", "#laser"};
-
     // Label of the transparent swatch: drawn as a checkerboard.
     private static final String TRANSPARENT = "~transparent";
+    private static final int TOOLBAR_Y = 24;
 
-    private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip) {
+    /** A button: label # + atlas id = icon, else text; swatch != 0 = colour swatch; panel = clipped to the panel view. */
+    private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip,
+                       boolean panel, boolean disabled) {
         boolean hit(double gx, double gy) {
-            return gx >= x && gx < x + w && gy >= y && gy < y + h;
+            return gx >= x && gx < x + w && gy >= y && gy < y + h && (!panel || inPanelView(gy));
         }
     }
 
     private static final List<Btn> buttons = new ArrayList<>();
-    private static int panelX, panelY, panelW, panelH, sliderX, sliderY, sliderW;
+    private static int panelX, panelY, panelW, panelH, sliderX, sliderY, sliderW, sliderH;
+    // Panel scroll offset and the full content height (the panel shows at most the screen's height).
+    private static int panelScroll, panelContentH;
     private static boolean sliderDrag;
     private static int screenH;
     // The panel's current-stamp icon {x, y, size} and id, drawn over its button.
@@ -53,24 +59,32 @@ public final class EditorUi {
         return (int) Math.round(px * Config.UI_SCALE.get());
     }
 
+    private static boolean inPanelView(double gy) {
+        return gy >= panelY && gy < panelY + panelH;
+    }
+
+    private static String tr(String key) {
+        return Component.translatable("mapsketch.ui." + key).getString();
+    }
+
     /** Rebuilds the widget list for this frame. */
     private static void layout(int screenW) {
         buttons.clear();
         panelW = 0;
         if (!Config.ENABLED.get()) return;
-        int s = u(20), gap = u(2);
+        int s = u(PanelLayout.TOOL), gap = u(PanelLayout.TOOL_GAP);
         Editor.Tool[] tools = Editor.Tool.values();
         int n = Editor.drawMode() ? tools.length + 1 : 1;
-        int x = screenW / 2 - (n * (s + gap)) / 2, y = 24;
+        int x = screenW / 2 - (n * (s + gap) + gap * 2) / 2, y = TOOLBAR_Y;
         buttons.add(new Btn(x, y, s, s, "#draw", Editor.drawMode(), 0, Editor::toggleDrawMode,
-                Component.translatable("mapsketch.ui.draw_mode", MapSketchKeys.TOGGLE.getTranslatedKeyMessage()).getString()));
+                Component.translatable("mapsketch.ui.draw_mode", MapSketchKeys.TOGGLE.getTranslatedKeyMessage()).getString(), false, false));
         if (!Editor.drawMode()) return;
         x += s + gap * 3;
         for (int i = 0; i < tools.length; i++) {
             Editor.Tool t = tools[i];
             String key = t.digit != '\0' ? t.key + " / " + t.digit : String.valueOf(t.key);
             buttons.add(new Btn(x, y, s, s, TOOL_GLYPHS[i], Editor.tool() == t, 0, () -> Editor.setTool(t),
-                    Component.translatable("mapsketch.tool." + t.name().toLowerCase()).getString() + " — " + key));
+                    Component.translatable("mapsketch.tool." + t.name().toLowerCase()).getString() + " — " + key, false, false));
             x += s + gap;
         }
         boolean creating = switch (Editor.tool()) {
@@ -78,80 +92,75 @@ public final class EditorUi {
             default -> false;
         };
         if (Editor.selection().isEmpty() && !creating) return;
+        panelX = 4;
+        // Below the toolbar: on narrow screens the wider toolbar reaches over the panel's column.
+        panelY = TOOLBAR_Y + s + u(8);
         panel();
+        // Fit the panel to the screen; scroll the rest. A clamped scroll lays the panel out again at once.
+        panelH = Math.min(panelContentH, Math.max(u(60), screenH - panelY - 4));
+        int max = Math.max(0, panelContentH - panelH);
+        if (panelScroll > max) {
+            panelScroll = max;
+            buttons.removeIf(Btn::panel);
+            labels.clear();
+            labelKeys.clear();
+            chips.clear();
+            stampChip = null;
+            panel();
+        }
     }
 
     private static void panel() {
         Editor.Style st = Editor.style;
         List<Element> sel = Editor.selectedLive();
-        panelX = 4;
-        panelY = 34;
-        panelW = u(124);
-        int x0 = panelX + u(4), y = panelY + u(4), sw = u(14), gap = u(2), row = u(10) + sw + gap;
-        // Stroke colour
-        label(x0, y, "stroke");
-        int yy = y + u(10), x = x0;
-        for (int c : STROKES) {
-            buttons.add(new Btn(x, yy, sw, sw, "", st.stroke == c, c, () -> apply(s -> s.stroke = c, e -> e.stroke = c), hexOf(c)));
-            x += sw + gap;
-        }
-        chip(x, yy, ColorPicker.Target.STROKE, st.stroke);
-        y += row;
-        // Background
+        PanelLayout lay = new PanelLayout(Config.UI_SCALE.get(), panelX, panelY - panelScroll);
+        panelW = lay.width();
+        swatches(lay, "stroke", STROKES, st.stroke, ColorPicker.Target.STROKE, c -> apply(s -> s.stroke = c, e -> e.stroke = c));
         // Text has its own background box (none or solid); shapes have the full background and fill style.
         boolean textOnly = textContext(sel);
-        int bg = textOnly ? st.textFill : st.fill;
-        label(x0, y, textOnly ? "text_background" : "background");
-        yy = y + u(10);
-        x = x0;
-        for (int c : FILLS) {
-            int fc = c;
-            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? TRANSPARENT : "", bg == c, c, () -> apply(s -> {
-                if (textOnly) s.textFill = fc;
-                else s.fill = fc;
-            }, e -> setBackground(e, fc)), c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
-            x += sw + gap;
-        }
-        chip(x, yy, textOnly ? ColorPicker.Target.TEXT_FILL : ColorPicker.Target.FILL, bg);
-        y += row;
-        if (textOnly) y = options(x0, y, "fill", new String[]{"#fill_none", "#fill_solid"}, (st.textFill >>> 24) != 0 ? 1 : 0, i -> {
+        swatches(lay, textOnly ? "text_background" : "background", FILLS, textOnly ? st.textFill : st.fill,
+                textOnly ? ColorPicker.Target.TEXT_FILL : ColorPicker.Target.FILL, c -> apply(s -> {
+                    if (textOnly) s.textFill = c;
+                    else s.fill = c;
+                }, e -> setBackground(e, c)));
+        if (textOnly) options(lay, "fill", new String[]{"#fill_none", "#fill_solid"}, null, (st.textFill >>> 24) != 0 ? 1 : 0, -1, i -> {
             int c = i == 0 ? 0 : (st.textFill >>> 24) != 0 ? st.textFill : 0xFFFFFFFF;
             apply(s -> s.textFill = c, e -> setBackground(e, c));
         });
-        else y = options(x0, y, "fill", new String[]{"#fill_none", "#fill_hachure", "#fill_cross", "#fill_solid"}, st.fillStyle.ordinal(), i -> {
+        else options(lay, "fill", new String[]{"#fill_none", "#fill_hachure", "#fill_cross", "#fill_solid"}, null, st.fillStyle.ordinal(), -1, i -> {
             Element.FillStyle f = Element.FillStyle.values()[i];
             apply(s -> s.fillStyle = f, e -> {
                 if (e.type != Element.Type.TEXT) e.fillStyle = f;
             });
         });
-        y = options(x0, y, "width", new String[]{"#width_thin", "#width_bold", "#width_extra"}, st.width, i ->
+        options(lay, "width", new String[]{"#width_thin", "#width_bold", "#width_extra"}, null, st.width, -1, i ->
                 apply(s -> s.width = i, e -> e.strokeWidth = Editor.widthPreset(i)));
-        y = options(x0, y, "stroke_style", new String[]{"#style_solid", "#style_dashed", "#style_dotted"}, st.strokeStyle.ordinal(), i -> {
+        options(lay, "stroke_style", new String[]{"#style_solid", "#style_dashed", "#style_dotted"}, null, st.strokeStyle.ordinal(), -1, i -> {
             Element.StrokeStyle f = Element.StrokeStyle.values()[i];
             apply(s -> s.strokeStyle = f, e -> e.strokeStyle = f);
         });
-        y = options(x0, y, "sloppiness", new String[]{"#slop_0", "#slop_1", "#slop_2"}, st.roughness, i ->
+        options(lay, "sloppiness", new String[]{"#slop_0", "#slop_1", "#slop_2"}, null, st.roughness, -1, i ->
                 apply(s -> s.roughness = i, e -> e.roughness = i));
-        y = options(x0, y, "edges", new String[]{"#edge_sharp", "#edge_round"}, st.round ? 1 : 0, i ->
+        options(lay, "edges", new String[]{"#edge_sharp", "#edge_round"}, null, st.round ? 1 : 0, -1, i ->
                 apply(s -> s.round = i == 1, e -> e.round = i == 1 && e.type != Element.Type.FREEDRAW));
-        // Opacity slider
-        label(x0, y, "opacity");
-        sliderX = x0;
-        sliderY = y + u(10);
-        sliderW = panelW - u(8);
-        y += u(10) + u(10) + gap;
+        label(lay, "opacity");
+        PanelLayout.Rect sl = lay.slider();
+        sliderX = sl.x();
+        sliderY = sl.y();
+        sliderW = sl.w();
+        sliderH = sl.h();
         boolean arrows = Editor.tool() == Editor.Tool.ARROW || Editor.tool() == Editor.Tool.LINE
                 || sel.stream().anyMatch(e -> e.type == Element.Type.ARROW || e.type == Element.Type.LINE);
         if (arrows) {
             String[] heads = {"#head_none", "#head_arrow", "#head_triangle", "#head_bar", "#head_dot"};
             String[] startHeads = {"#head_none@m", "#head_arrow@m", "#head_triangle@m", "#head_bar@m", "#head_dot@m"};
-            y = options(x0, y, "arrow_start", startHeads, st.arrowStart.ordinal(), i -> {
+            options(lay, "arrow_start", startHeads, null, st.arrowStart.ordinal(), -1, i -> {
                 Element.Head h = Element.Head.values()[i];
                 apply(s -> s.arrowStart = h, e -> {
                     if (e.type == Element.Type.ARROW || e.type == Element.Type.LINE) e.arrowStart = h;
                 });
             });
-            y = options(x0, y, "arrow_end", heads, st.arrowEnd.ordinal(), i -> {
+            options(lay, "arrow_end", heads, null, st.arrowEnd.ordinal(), -1, i -> {
                 Element.Head h = Element.Head.values()[i];
                 apply(s -> s.arrowEnd = h, e -> {
                     if (e.type == Element.Type.ARROW || e.type == Element.Type.LINE) e.arrowEnd = h;
@@ -159,53 +168,51 @@ public final class EditorUi {
             });
         }
         if (Editor.tool() == Editor.Tool.STAMP || sel.stream().anyMatch(e -> e.type == Element.Type.STAMP)) {
-            label(x0, y, "stamp");
-            int bh = u(18);
+            label(lay, "stamp");
+            PanelLayout.Rect r = lay.wide();
             String cur = sel.stream().filter(e -> e.type == Element.Type.STAMP).map(e -> e.stamp).findFirst().orElse(Editor.style.stamp);
-            stampChip = new int[]{x0, y + u(10), bh};
+            stampChip = new int[]{r.x() + u(3), r.y() + u(2), r.h() - u(4)};
             stampChipId = cur;
-            buttons.add(new Btn(x0, y + u(10), panelW - u(8), bh, "      " + StampPicker.name(cur), StampPicker.open(), 0,
+            buttons.add(new Btn(r.x(), r.y(), r.w(), r.h(), "      " + StampPicker.name(cur), StampPicker.open(), 0,
                     () -> {
                         if (StampPicker.open()) StampPicker.close();
                         else StampPicker.open(Editor.tool() == Editor.Tool.STAMP);
-                    }, Component.translatable("mapsketch.ui.change_stamp").getString()));
-            y += u(10) + bh + u(2);
+                    }, tr("change_stamp"), true, false));
         }
         boolean text = Editor.tool() == Editor.Tool.TEXT || sel.stream().anyMatch(e -> !e.text.isEmpty() || e.type == Element.Type.TEXT);
         if (text) {
-            y = options(x0, y, "font_size", new String[]{"S", "M", "L", "XL"}, st.font, i ->
+            options(lay, "font_size", new String[]{"S", "M", "L", "XL"}, new String[]{"font_s", "font_m", "font_l", "font_xl"}, st.font, -1, i ->
                     apply(s -> s.font = i, e -> e.fontSize = Editor.fontPreset(i)));
-            y = options(x0, y, "align", new String[]{"#align_left", "#align_center", "#align_right"}, st.align.ordinal(), i -> {
+            options(lay, "align", new String[]{"#align_left", "#align_center", "#align_right"}, null, st.align.ordinal(), -1, i -> {
                 Element.Align a = Element.Align.values()[i];
                 apply(s -> s.align = a, e -> e.align = a);
             });
         }
         ServerInfoPayload info = ClientStore.info();
         boolean teams = info != null && info.teams();
-        String[] vis = java.util.Arrays.stream(teams ? new String[]{"vis_private", "vis_team", "vis_public"} : new String[]{"vis_private", "vis_public"})
-                .map(k -> Component.translatable("mapsketch.ui." + k).getString()).toArray(String[]::new);
         Element.Visibility cur = st.visibility != null ? st.visibility : info != null ? info.defaultVisibility() : Element.Visibility.PUBLIC;
-        int visIdx = teams ? cur.ordinal() : cur == Element.Visibility.PRIVATE ? 0 : 1;
-        y = options(x0, y, "visibility", vis, visIdx, i -> {
-            Element.Visibility v = teams ? Element.Visibility.values()[i] : i == 0 ? Element.Visibility.PRIVATE : Element.Visibility.PUBLIC;
-            apply(s -> s.visibility = v, e -> {
-                if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(e.owner)
-                        || info != null && info.op()) e.visibility = v;
-            });
-        });
+        // Text, not icons; Team stays visible but disabled (with the reason) when the server has no FTB Teams.
+        options(lay, "visibility", new String[]{tr("vis_private"), tr("team"), tr("vis_public")},
+                new String[]{null, teams ? "vis_team" : "vis_team_unavailable", null}, cur.ordinal(), teams ? -1 : 1, i -> {
+                    Element.Visibility v = Element.Visibility.values()[i];
+                    apply(s -> s.visibility = v, e -> {
+                        if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(e.owner)
+                                || info != null && info.op()) e.visibility = v;
+                    });
+                });
         if (!sel.isEmpty()) {
-            y = actions(x0, y, "layers", new String[]{"#to_back", "#backward", "#forward", "#to_front"}, new Runnable[]{
-                    () -> Editor.reorder(-2), () -> Editor.reorder(-1), () -> Editor.reorder(1), () -> Editor.reorder(2)},
-                    new String[]{"to_back", "backward", "forward", "to_front"});
+            Runnable[] layers = {() -> Editor.reorder(-2), () -> Editor.reorder(-1), () -> Editor.reorder(1), () -> Editor.reorder(2)};
+            options(lay, "layers", new String[]{"#to_back", "#backward", "#forward", "#to_front"}, null, -1, -1, i -> layers[i].run());
             boolean locked = sel.stream().allMatch(e -> e.locked);
-            y = actions(x0, y, "actions", new String[]{"#duplicate", "#delete", "#group", "#ungroup", locked ? "#unlock" : "#lock"}, new Runnable[]{
-                    Editor::duplicate, Editor::deleteSelection, Editor::group, Editor::ungroup,
+            Runnable[] acts = {Editor::duplicate, Editor::deleteSelection, Editor::group, Editor::ungroup,
                     () -> Editor.editSelection(e -> {
                         if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(e.owner)
                                 || info != null && info.op()) e.locked = !locked;
-                    })}, new String[]{"duplicate", "delete", "group", "ungroup", locked ? "unlock" : "lock"});
+                    })};
+            options(lay, "actions", new String[]{"#duplicate", "#delete", "#group", "#ungroup", locked ? "#unlock" : "#lock"}, null, -1, -1,
+                    i -> acts[i].run());
         }
-        panelH = y - panelY + u(2);
+        panelContentH = lay.bottom() - (panelY - panelScroll);
     }
 
     /** @return true when the panel edits text only: the Text tool with nothing selected, or a selection of only text */
@@ -228,42 +235,49 @@ public final class EditorUi {
     private static final List<int[]> labels = new ArrayList<>();
     private static final List<String> labelKeys = new ArrayList<>();
 
-    private static void label(int x, int y, String key) {
-        labels.add(new int[]{x, y});
+    private static void label(PanelLayout lay, String key) {
+        labels.add(new int[]{lay.innerX(), lay.label()});
         labelKeys.add(key);
     }
 
-    private static int options(int x, int y, String key, String[] glyphs, int active, java.util.function.IntConsumer pick) {
-        label(x, y, key);
-        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(18);
-        for (int i = 0; i < glyphs.length; i++) {
-            int fi = i;
-            String g = glyphs[i];
-            // An icon label (# + atlas id, "@m" = mirrored) tips with its name; a text label is translated, or shown as is.
-            String tip = g.startsWith("#") ? Component.translatable("mapsketch.ui." + g.substring(1).replace("@m", "")).getString() : "";
-            String label = g;
-            buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, label, i == active, 0, () -> pick.accept(fi), tip));
+    /** A labelled colour row: swatches, then the current-colour chip that opens the picker. */
+    private static void swatches(PanelLayout lay, String key, int[] colors, int current, ColorPicker.Target target, IntConsumer pick) {
+        label(lay, key);
+        PanelLayout.Rect[] r = lay.swatches(colors.length);
+        for (int i = 0; i < colors.length; i++) {
+            int c = colors[i];
+            buttons.add(new Btn(r[i].x(), r[i].y(), r[i].w(), r[i].h(), c == 0 ? TRANSPARENT : "", current == c, c,
+                    () -> pick.accept(c), c == 0 ? tr("transparent") : hexOf(c), true, false));
         }
-        return y + u(10) + h + u(2);
+        chip(r[colors.length], target, current);
     }
 
-    private static int actions(int x, int y, String key, String[] glyphs, Runnable[] run, String[] tips) {
-        label(x, y, key);
-        int w = (panelW - u(8) - (glyphs.length - 1) * u(2)) / glyphs.length, h = u(18);
-        for (int i = 0; i < glyphs.length; i++)
-            buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, glyphs[i], false, 0, run[i],
-                    Component.translatable("mapsketch.ui." + tips[i]).getString()));
-        return y + u(10) + h + u(2);
+    /**
+     * A labelled row of equal-width buttons.
+     *
+     * @param labels # + atlas id = icon ("@m" = mirrored), else text shown as is
+     * @param tips   lang keys under mapsketch.ui. (null entry = none); null = derive from the icon ids
+     * @param active selected index, -1 for none (action rows)
+     * @param disabled index drawn greyed that ignores clicks (its tip says why), -1 for none
+     */
+    private static void options(PanelLayout lay, String key, String[] labels, String[] tips, int active, int disabled, IntConsumer pick) {
+        label(lay, key);
+        PanelLayout.Rect[] r = lay.row(labels.length);
+        for (int i = 0; i < labels.length; i++) {
+            int fi = i;
+            String tipKey = tips != null ? tips[i] : labels[i].substring(1).replace("@m", "");
+            buttons.add(new Btn(r[i].x(), r[i].y(), r[i].w(), r[i].h(), labels[i], i == active, 0, () -> pick.accept(fi),
+                    tipKey == null ? "" : tr(tipKey), true, i == disabled));
+        }
     }
 
     /** The current colour; clicking it opens (or closes) the picker beside the panel. */
-    private static void chip(int x, int y, ColorPicker.Target target, int color) {
-        int w = panelW - u(4) - (x - panelX), h = u(14);
-        chips.add(new int[]{x, y, w, h, color});
-        buttons.add(new Btn(x, y, w, h, "", ColorPicker.target() == target, 0, () -> {
+    private static void chip(PanelLayout.Rect r, ColorPicker.Target target, int color) {
+        chips.add(new int[]{r.x(), r.y(), r.w(), r.h(), color});
+        buttons.add(new Btn(r.x(), r.y(), r.w(), r.h(), "", ColorPicker.target() == target, 0, () -> {
             if (ColorPicker.target() == target) ColorPicker.close(true);
-            else ColorPicker.open(target, panelX + panelW + u(4), y, Minecraft.getInstance().getWindow().getGuiScaledWidth(), screenH);
-        }, Component.translatable("mapsketch.ui.pick_color").getString()));
+            else ColorPicker.open(target, panelX + panelW + u(4), r.y(), Minecraft.getInstance().getWindow().getGuiScaledWidth(), screenH);
+        }, tr("pick_color"), true, false));
     }
 
     private static String hexOf(int c) {
@@ -287,14 +301,14 @@ public final class EditorUi {
             return ColorPicker.mousePressed(gx, gy, button);
         if (ColorPicker.open() && button == 0 && !chipHit(gx, gy)) ColorPicker.close(true);
         if (button != 0) return over(gx, gy);
-        if (panelW > 0 && gx >= sliderX && gx < sliderX + sliderW && gy >= sliderY && gy < sliderY + u(10)) {
+        if (panelW > 0 && gx >= sliderX && gx < sliderX + sliderW && gy >= sliderY && gy < sliderY + sliderH && inPanelView(gy)) {
             sliderDrag = true;
             slide(gx);
             return true;
         }
         for (Btn b : buttons)
             if (b.hit(gx, gy)) {
-                b.action().run();
+                if (!b.disabled()) b.action().run();
                 return true;
             }
         return over(gx, gy);
@@ -342,7 +356,11 @@ public final class EditorUi {
 
     /** @return true when the wheel scrolled one of our popovers (Xaero must not zoom) */
     public static boolean mouseScrolled(double gx, double gy, double delta) {
-        return StampPicker.open() && StampPicker.mouseScrolled(gx, gy, delta);
+        if (StampPicker.open() && StampPicker.mouseScrolled(gx, gy, delta)) return true;
+        if (panelW == 0 || gx < panelX || gx >= panelX + panelW || !inPanelView(gy)) return false;
+        // Over the panel the wheel scrolls it (clamped next layout), never zooms Xaero.
+        panelScroll = Math.max(0, panelScroll - (int) Math.round(delta * u(24)));
+        return true;
     }
 
     static boolean keyPressed(int key, int mods) {
@@ -399,43 +417,84 @@ public final class EditorUi {
             g.fill(screenW / 2 - w / 2 - 4, ty - 3, screenW / 2 + w / 2 + 4, ty + 11, 0xE0202124);
             g.drawString(font, toast, screenW / 2 - w / 2, ty, 0xFFFFFFFF, false);
         }
+        boolean popover = ColorPicker.over(mouseX, mouseY) || StampPicker.over(mouseX, mouseY);
+        int mx = popover ? Integer.MIN_VALUE : mouseX, my = popover ? Integer.MIN_VALUE : mouseY;
         if (panelW > 0) {
-            g.fill(panelX, panelY, panelX + panelW, panelY + panelH, BG);
-            outline(g, panelX, panelY, panelW, panelH, BORDER);
+            g.fill(panelX, panelY, panelX + panelW, panelY + panelH, PanelLayout.PANEL_BG);
+            outline(g, panelX, panelY, panelW, panelH, PanelLayout.PANEL_BORDER);
+            g.enableScissor(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + panelH - 1);
             for (int i = 0; i < labels.size(); i++)
-                g.drawString(font, Component.translatable("mapsketch.ui." + labelKeys.get(i)), labels.get(i)[0], labels.get(i)[1], 0xFF5F6368, false);
-            g.fill(sliderX, sliderY + u(4), sliderX + sliderW, sliderY + u(6), BORDER);
-            int knob = sliderX + sliderW * Editor.style.opacity / 100;
-            g.fill(knob - u(2), sliderY, knob + u(2), sliderY + u(10), ACCENT);
-            g.drawString(font, Editor.style.opacity + "%", sliderX + sliderW - font.width("100%"), sliderY - u(10), 0xFF5F6368, false);
-        }
-        Btn hover = null;
-        for (Btn b : buttons) {
-            boolean toolbar = b.y() == 24;
-            if (toolbar) g.fill(b.x() - 1, b.y() - 1, b.x() + b.w() + 1, b.y() + b.h() + 1, BG);
-            if (b.label().equals(TRANSPARENT)) ColorPicker.checker(g, b.x(), b.y(), b.w(), b.h());
-            else if (b.swatch() != 0) {
-                g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), b.swatch());
-            } else if (b.active()) g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), ACTIVE);
-            outline(g, b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : BORDER);
-            if (b.label().startsWith("#") && UiIcons.has(b.label().substring(1))) {
-                g.flush();
-                UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(), b.active() ? UiIcons.SELECTED : UiIcons.NORMAL);
-            } else if (!b.label().isEmpty() && !b.label().equals(TRANSPARENT)) {
-                int tw = font.width(b.label());
-                g.drawString(font, b.label(), b.x() + (b.w() - tw) / 2, b.y() + (b.h() - 8) / 2, b.swatch() == 0xFF1E1E1E ? 0xFFFFFFFF : TEXT, false);
+                g.drawString(font, Component.translatable("mapsketch.ui." + labelKeys.get(i)), labels.get(i)[0], labels.get(i)[1], PanelLayout.LABEL, false);
+            String pct = Editor.style.opacity + "%";
+            g.drawString(font, pct, sliderX + sliderW - font.width(pct), sliderY - PanelLayout.LABEL_H - u(PanelLayout.LABEL_GAP), PanelLayout.LABEL, false);
+            int mid = sliderY + sliderH / 2, knob = sliderX + u(3) + (sliderW - u(6)) * Editor.style.opacity / 100;
+            g.fill(sliderX, mid - 1, sliderX + sliderW, mid + 1, PanelLayout.PANEL_BORDER);
+            g.fill(sliderX, mid - 1, knob, mid + 1, ACCENT);
+            g.fill(knob - u(3), sliderY, knob + u(3), sliderY + sliderH, ACCENT);
+            buttons(g, true, mx, my);
+            for (int[] c : chips) {
+                int in = u(3);
+                ColorPicker.checker(g, c[0] + in, c[1] + in, c[2] - 2 * in, c[3] - 2 * in);
+                g.fill(c[0] + in, c[1] + in, c[0] + c[2] - in, c[1] + c[3] - in, c[4]);
+                outline(g, c[0] + in, c[1] + in, c[2] - 2 * in, c[3] - 2 * in, PanelLayout.SWATCH_BORDER);
             }
-            if (b.hit(mouseX, mouseY)) hover = b;
+            if (stampChip != null) StampPicker.icon(g, stampChipId, stampChip[0], stampChip[1], stampChip[2]);
+            g.disableScissor();
+            if (panelContentH > panelH) {
+                int track = panelH - 4, bar = Math.max(u(12), track * panelH / panelContentH);
+                int by = panelY + 2 + (track - bar) * panelScroll / (panelContentH - panelH);
+                g.fill(panelX + panelW - 4, by, panelX + panelW - 2, by + bar, PanelLayout.SCROLLBAR);
+            }
         }
-        for (int[] c : chips) {
-            ColorPicker.checker(g, c[0] + 1, c[1] + 1, c[2] - 2, c[3] - 2);
-            g.fill(c[0] + 1, c[1] + 1, c[0] + c[2] - 1, c[1] + c[3] - 1, c[4]);
+        Btn first = buttons.isEmpty() ? null : buttons.get(0);
+        if (first != null && !first.panel()) {
+            Btn last = first;
+            for (Btn b : buttons) if (!b.panel()) last = b;
+            int p = u(3);
+            g.fill(first.x() - p, first.y() - p, last.x() + last.w() + p, last.y() + last.h() + p, PanelLayout.PANEL_BG);
+            outline(g, first.x() - p, first.y() - p, last.x() + last.w() - first.x() + 2 * p, last.h() + 2 * p, PanelLayout.PANEL_BORDER);
         }
-        if (stampChip != null) StampPicker.icon(g, stampChipId, stampChip[0] + 2, stampChip[1] + 1, stampChip[2] - 2);
+        buttons(g, false, mx, my);
         ColorPicker.render(g);
         StampPicker.render(g, screenW, screenH, mouseX, mouseY);
-        if (ColorPicker.over(mouseX, mouseY) || StampPicker.over(mouseX, mouseY)) hover = null;
+        Btn hover = null;
+        for (Btn b : buttons) if (b.hit(mx, my)) hover = b;
         if (hover != null && !hover.tip().isEmpty()) g.renderTooltip(font, Component.literal(hover.tip()), mouseX, mouseY + 12);
+    }
+
+    /**
+     * Draws the panel's or the toolbar's buttons: backgrounds (normal, hover, selected = light accent + accent border,
+     * disabled), swatches, then one flush and the icons (drawn immediately), then text labels.
+     */
+    private static void buttons(GuiGraphics g, boolean panel, int mx, int my) {
+        Font font = Minecraft.getInstance().font;
+        for (Btn b : buttons) {
+            if (b.panel() != panel) continue;
+            int x = b.x(), y = b.y(), w = b.w(), h = b.h();
+            if (b.label().equals(TRANSPARENT) || b.swatch() != 0) {
+                if (b.label().equals(TRANSPARENT)) ColorPicker.checker(g, x, y, w, h);
+                else g.fill(x, y, x + w, y + h, b.swatch());
+                outline(g, x, y, w, h, PanelLayout.SWATCH_BORDER);
+                if (b.active()) outline(g, x - 2, y - 2, w + 4, h + 4, ACCENT);
+                else if (b.hit(mx, my)) outline(g, x - 1, y - 1, w + 2, h + 2, PanelLayout.SWATCH_BORDER);
+                continue;
+            }
+            int bg = b.disabled() ? PanelLayout.BUTTON_DISABLED : b.active() ? PanelLayout.SELECTED_BG
+                    : b.hit(mx, my) ? PanelLayout.BUTTON_HOVER : panel ? PanelLayout.BUTTON : 0;
+            if (bg != 0) g.fill(x, y, x + w, y + h, bg);
+            if (b.active()) outline(g, x, y, w, h, ACCENT);
+        }
+        g.flush();
+        for (Btn b : buttons)
+            if (b.panel() == panel && b.label().startsWith("#"))
+                UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(),
+                        b.disabled() ? UiIcons.DISABLED : b.active() ? UiIcons.SELECTED : UiIcons.NORMAL);
+        for (Btn b : buttons) {
+            String l = b.label();
+            if (b.panel() != panel || l.isEmpty() || l.startsWith("#") || l.equals(TRANSPARENT)) continue;
+            int c = b.disabled() ? PanelLayout.TEXT_DISABLED : b.active() ? PanelLayout.TEXT_SELECTED : PanelLayout.TEXT;
+            g.drawString(font, l, b.x() + (b.w() - font.width(l)) / 2, b.y() + (b.h() - 8 + 1) / 2, c, false);
+        }
     }
 
     private static void outline(GuiGraphics g, int x, int y, int w, int h, int c) {

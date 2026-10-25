@@ -69,11 +69,18 @@ tasks.register('iconAtlas', JavaExec) {
     args = ["${res}/icons/svg", "${res}/textures/gui/icons.png", "${res}/icons/atlas.txt"]
     jvmArgs '-Djava.awt.headless=true'
 }
-// Preview PNG of the toolbar/panel icons (not part of check).
+// Contact sheet of the icon atlas as drawn in game (not part of check).
 tasks.register('iconSheet', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.volcanicmg.mapsketch.IconSheet'
     args = [project.findProperty('out') ?: "${buildDir}/ui-icons-sheet.png"]
+    jvmArgs '-Djava.awt.headless=true'
+}
+// Mock of the toolbar and full properties panel at UI scale 1 and 2 (not part of check).
+tasks.register('panelPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.volcanicmg.mapsketch.PanelPreview'
+    args = [project.findProperty('out') ?: "${buildDir}/panel-preview.png"]
     jvmArgs '-Djava.awt.headless=true'
 }
 // Preview PNG of the pixel stamps and vanilla map icons (not part of check).

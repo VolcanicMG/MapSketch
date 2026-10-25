@@ -112,7 +112,8 @@ scale.
 `./gradlew build` (needs the exact Xaero, xaerolib, FTB Teams and Architectury jars in the gitignored `libs/`, see
 `build.gradle`). `check` runs `selfCheck` (model, rules, geometry, icon atlas) and `syncSim` (two-client multiplayer
 race simulation of the server logic). After editing an icon in `assets/mapsketch/icons/svg/`, run
-`./gradlew iconAtlas` to regenerate the committed atlas; `selfCheck` fails while it is stale. Design notes:
+`./gradlew iconAtlas` to regenerate the committed atlas; `selfCheck` fails while it is stale. `./gradlew iconSheet` and
+`./gradlew panelPreview` render review PNGs of the icons and the panel. Design notes:
 [DESIGN.md](DESIGN.md).
 
 ## License
