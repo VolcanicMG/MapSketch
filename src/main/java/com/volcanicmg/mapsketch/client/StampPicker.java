@@ -315,7 +315,10 @@ final class StampPicker {
             g.drawString(font, empty ? caret + tr("stamp_search") : search + caret, x + pad + 3, yy + (fh - 8) / 2,
                     empty ? 0xFF9AA0A6 : 0xFF1E1E1E, false);
             clearBox = empty ? null : new int[]{x + w - pad - fh, yy, fh, fh};
-            if (clearBox != null) g.drawString(font, "×", clearBox[0] + (fh - font.width("×")) / 2, yy + (fh - 8) / 2, 0xFF5F6368, false);
+            if (clearBox != null) {
+                g.flush();
+                UiIcons.draw(g, "close", clearBox[0], yy, fh, fh, 0xFF5F6368);
+            }
             yy += fh + u(4);
             // Tabs (greyed while a search shows everything).
             int tw = (w - pad * 2 - u(4)) / 3;
@@ -351,8 +354,9 @@ final class StampPicker {
             prevBox = new int[]{x + pad, py, u(14), u(12)};
             nextBox = new int[]{x + w - pad - u(14), py, u(14), u(12)};
             boolean more = scroll + LINES < lines.size();
-            g.drawString(font, "▲", prevBox[0] + 3, py + 2, scroll > 0 ? 0xFF1E1E1E : 0xFFCCCCCC, false);
-            g.drawString(font, "▼", nextBox[0] + 3, py + 2, more ? 0xFF1E1E1E : 0xFFCCCCCC, false);
+            g.flush();
+            UiIcons.draw(g, "chevron_up", prevBox[0], py, prevBox[2], prevBox[3], scroll > 0 ? UiIcons.NORMAL : UiIcons.DISABLED);
+            UiIcons.draw(g, "chevron_down", nextBox[0], py, nextBox[2], nextBox[3], more ? UiIcons.NORMAL : UiIcons.DISABLED);
             String count = results.size() + "";
             g.drawString(font, count, x + w / 2 - font.width(count) / 2, py + 2, 0xFF5F6368, false);
         } finally {

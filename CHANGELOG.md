@@ -12,14 +12,14 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
-- One consistent pixel-icon family for the whole toolbar and properties panel (tools, fill, width, stroke style,
-  sloppiness, edges, arrowheads, text size and alignment, visibility, layers, actions): 16x16 icons with the same
-  2 px line weight and optical size, drawn at whole-pixel scale, dark normally and accent-blue when selected, no font
-  glyphs; tooltips on every button. Start arrowheads are mirrored. `./gradlew iconSheet` renders a preview.
+- Toolbar and panel icons are Excalidraw's own smooth line icons (MIT; a few from Tabler Icons, MIT), rasterized
+  at build time (`./gradlew iconAtlas`, a small SVG path rasterizer) into one white alpha atlas drawn with linear
+  filtering and mipmaps, tinted dark normally and accent-blue when selected, at 65% of the button. Text sizes show
+  S / M / L / XL; the stamp picker's clear and page buttons use the same icons. `./gradlew iconSheet` renders a
+  contact sheet. Tooltips on every button; start arrowheads are mirrored.
 - Text background: text can have a padded background box (colour from the panel's Text background row, none or
   solid; round or sharp edges; follows opacity and rotation; included in selection and hit-testing). Default is no
-  box. Panel icons for text alignment, layers, duplicate/delete/group/ungroup/lock and the draw-mode button are now
-  drawn pixel icons instead of font glyphs.
+  box.
 - Typing in MapSketch inputs (in-map text, stamp search, colour picker / hex) never triggers Xaero's map keybinds or
   MapSketch tool shortcuts any more: while typing, every key press and release is MapSketch's. Ctrl+A/C/V/X work on
   the whole text.

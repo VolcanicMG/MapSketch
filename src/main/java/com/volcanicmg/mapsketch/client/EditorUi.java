@@ -23,9 +23,12 @@ public final class EditorUi {
     private static final int BG = 0xE0FFFFFF, BORDER = 0xFF9AA0A6, ACTIVE = 0xFFC9D7FF, ACCENT = 0xFF4C6EF5, TEXT = 0xFF1E1E1E;
     static final int[] STROKES = {0xFF1E1E1E, 0xFFE03131, 0xFF2F9E44, 0xFF1971C2, 0xFFF08C00, 0xFFFFFFFF};
     static final int[] FILLS = {0, 0xFFFFC9C9, 0xFFB2F2BB, 0xFFA5D8FF, 0xFFFFEC99, 0xFF1E1E1E};
-    // Drawn icons (UiIconArt), in Tool order.
+    // Atlas icons (UiIcons), in Tool order.
     private static final String[] TOOL_GLYPHS = {"#hand", "#select", "#rectangle", "#diamond", "#ellipse", "#arrow", "#line",
             "#pen", "#text", "#stamp", "#eraser", "#laser"};
+
+    // Label of the transparent swatch: drawn as a checkerboard.
+    private static final String TRANSPARENT = "~transparent";
 
     private record Btn(int x, int y, int w, int h, String label, boolean active, int swatch, Runnable action, String tip) {
         boolean hit(double gx, double gy) {
@@ -103,7 +106,7 @@ public final class EditorUi {
         x = x0;
         for (int c : FILLS) {
             int fc = c;
-            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? "#transparent" : "", bg == c, c, () -> apply(s -> {
+            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? TRANSPARENT : "", bg == c, c, () -> apply(s -> {
                 if (textOnly) s.textFill = fc;
                 else s.fill = fc;
             }, e -> setBackground(e, fc)), c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
@@ -170,7 +173,7 @@ public final class EditorUi {
         }
         boolean text = Editor.tool() == Editor.Tool.TEXT || sel.stream().anyMatch(e -> !e.text.isEmpty() || e.type == Element.Type.TEXT);
         if (text) {
-            y = options(x0, y, "font_size", new String[]{"#font_s", "#font_m", "#font_l", "#font_xl"}, st.font, i ->
+            y = options(x0, y, "font_size", new String[]{"S", "M", "L", "XL"}, st.font, i ->
                     apply(s -> s.font = i, e -> e.fontSize = Editor.fontPreset(i)));
             y = options(x0, y, "align", new String[]{"#align_left", "#align_center", "#align_right"}, st.align.ordinal(), i -> {
                 Element.Align a = Element.Align.values()[i];
@@ -179,7 +182,8 @@ public final class EditorUi {
         }
         ServerInfoPayload info = ClientStore.info();
         boolean teams = info != null && info.teams();
-        String[] vis = teams ? new String[]{"#vis_private", "#vis_team", "#vis_public"} : new String[]{"#vis_private", "#vis_public"};
+        String[] vis = java.util.Arrays.stream(teams ? new String[]{"vis_private", "vis_team", "vis_public"} : new String[]{"vis_private", "vis_public"})
+                .map(k -> Component.translatable("mapsketch.ui." + k).getString()).toArray(String[]::new);
         Element.Visibility cur = st.visibility != null ? st.visibility : info != null ? info.defaultVisibility() : Element.Visibility.PUBLIC;
         int visIdx = teams ? cur.ordinal() : cur == Element.Visibility.PRIVATE ? 0 : 1;
         y = options(x0, y, "visibility", vis, visIdx, i -> {
@@ -235,8 +239,8 @@ public final class EditorUi {
         for (int i = 0; i < glyphs.length; i++) {
             int fi = i;
             String g = glyphs[i];
-            // "#name" is a drawn icon (UiIconArt; "@m" = mirrored), its tooltip the translation of the name.
-            String tip = Component.translatable("mapsketch.ui." + g.substring(1).replace("@m", "")).getString();
+            // An icon label (# + atlas id, "@m" = mirrored) tips with its name; a text label is translated, or shown as is.
+            String tip = g.startsWith("#") ? Component.translatable("mapsketch.ui." + g.substring(1).replace("@m", "")).getString() : "";
             String label = g;
             buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, label, i == active, 0, () -> pick.accept(fi), tip));
         }
@@ -409,13 +413,15 @@ public final class EditorUi {
         for (Btn b : buttons) {
             boolean toolbar = b.y() == 24;
             if (toolbar) g.fill(b.x() - 1, b.y() - 1, b.x() + b.w() + 1, b.y() + b.h() + 1, BG);
-            if (b.swatch() != 0) {
+            if (b.label().equals(TRANSPARENT)) ColorPicker.checker(g, b.x(), b.y(), b.w(), b.h());
+            else if (b.swatch() != 0) {
                 g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), b.swatch());
             } else if (b.active()) g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), ACTIVE);
             outline(g, b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : BORDER);
-            if (b.label().startsWith("#") && UiIcons.has(b.label().substring(1)))
+            if (b.label().startsWith("#") && UiIcons.has(b.label().substring(1))) {
+                g.flush();
                 UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(), b.active() ? UiIcons.SELECTED : UiIcons.NORMAL);
-            else if (!b.label().isEmpty()) {
+            } else if (!b.label().isEmpty() && !b.label().equals(TRANSPARENT)) {
                 int tw = font.width(b.label());
                 g.drawString(font, b.label(), b.x() + (b.w() - tw) / 2, b.y() + (b.h() - 8) / 2, b.swatch() == 0xFF1E1E1E ? 0xFFFFFFFF : TEXT, false);
             }

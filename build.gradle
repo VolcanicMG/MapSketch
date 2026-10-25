@@ -61,6 +61,14 @@ tasks.register('syncSim', JavaExec) {
     jvmArgs '-ea'
 }
 tasks.named('check') { dependsOn 'selfCheck', 'syncSim' }
+// Rasterizes icons/svg into the committed atlas PNG + manifest (run after editing an SVG; not part of check).
+tasks.register('iconAtlas', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.volcanicmg.mapsketch.IconAtlasGen'
+    def res = 'src/main/resources/assets/mapsketch'
+    args = ["${res}/icons/svg", "${res}/textures/gui/icons.png", "${res}/icons/atlas.txt"]
+    jvmArgs '-Djava.awt.headless=true'
+}
 // Preview PNG of the toolbar/panel icons (not part of check).
 tasks.register('iconSheet', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath

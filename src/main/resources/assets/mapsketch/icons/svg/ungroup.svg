@@ -1,0 +1,6 @@
+<!-- excalidraw v0.18.1 packages/excalidraw/components/icons.tsx UngroupIcon (sketchy duplicate outlines dropped; white handle fill = erase) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 182 182" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+<path d="M25 26H111V111H25" fill="currentColor" stroke="none"/>
+<path d="M100 100H160V160H100" fill="currentColor" stroke="none"/>
+<g data-erase="true" fill="currentColor"><rect x="2.5" y="2.5" width="30" height="30"/><rect x="78.5" y="149.5" width="30" height="30"/><rect x="147.5" y="149.5" width="30" height="30"/><rect x="147.5" y="78.5" width="30" height="30"/><rect x="105.5" y="2.5" width="30" height="30"/><rect x="2.5" y="102.5" width="30" height="30"/></g>
+</svg>
