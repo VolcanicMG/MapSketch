@@ -314,8 +314,26 @@ public final class EditorUi {
         return StampPicker.open() && StampPicker.mouseScrolled(gx, gy, delta);
     }
 
-    static boolean keyPressed(int key) {
-        return ColorPicker.keyPressed(key) || StampPicker.keyPressed(key);
+    static boolean keyPressed(int key, int mods) {
+        return ColorPicker.keyPressed(key, mods) || StampPicker.keyPressed(key, mods);
+    }
+
+    /** @return true while one of our popovers owns the keyboard (stamp search, colour picker / hex field) */
+    static boolean isTyping() {
+        return StampPicker.open() || ColorPicker.open();
+    }
+
+    /** Ctrl (Cmd on macOS) held. */
+    static boolean ctrl(int mods) {
+        return (mods & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SUPER)) != 0;
+    }
+
+    static String clipboard() {
+        return Minecraft.getInstance().keyboardHandler.getClipboard();
+    }
+
+    static void setClipboard(String s) {
+        Minecraft.getInstance().keyboardHandler.setClipboard(s);
     }
 
     static boolean charTyped(char c) {

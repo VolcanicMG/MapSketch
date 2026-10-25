@@ -243,8 +243,19 @@ final class ColorPicker {
     }
 
     /** While open every key is ours: Esc reverts, Enter keeps, the hex field takes the rest. */
-    static boolean keyPressed(int key) {
+    static boolean keyPressed(int key, int mods) {
         if (target == null) return false;
+        if (EditorUi.ctrl(mods)) {
+            // Copy/paste the colour as hex; pasting opens the hex field with it.
+            if (key == GLFW.GLFW_KEY_C) EditorUi.setClipboard(Colors.hex(current()));
+            if (key == GLFW.GLFW_KEY_V) {
+                String v = EditorUi.clipboard().trim();
+                hex = new StringBuilder(v.startsWith("#") ? v.substring(1) : v);
+                if (hex.length() > 8) hex.setLength(8);
+            }
+            if (key == GLFW.GLFW_KEY_A && hex != null) hex.setLength(0);
+            return true;
+        }
         switch (key) {
             case GLFW.GLFW_KEY_ESCAPE -> {
                 if (hex != null) hex = null;

@@ -12,6 +12,9 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Typing in MapSketch inputs (in-map text, stamp search, colour picker / hex) never triggers Xaero's map keybinds or
+  MapSketch tool shortcuts any more: while typing, every key press and release is MapSketch's. Ctrl+A/C/V/X work on
+  the whole text.
 - Item stamps keep their colours: flat item icons are drawn layer by layer with the game's item tints (spawn eggs,
   potions, leather armour, tipped arrows, firework stars, maps). The stamp and colour pickers are opaque, and stamp
   icons are no longer covered by the picker's own background.

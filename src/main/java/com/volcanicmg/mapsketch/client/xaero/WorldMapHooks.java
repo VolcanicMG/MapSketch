@@ -74,17 +74,32 @@ public final class WorldMapHooks {
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.KeyPressed.Pre.class, safe(e -> {
             MapView v = viewOf(e.getScreen());
-            if (v == null || e.getScreen().getFocused() instanceof EditBox) return;
+            if (v == null) return;
+            // While typing into one of our inputs every key is ours (Esc included): Xaero and vanilla never see it.
+            if (Editor.isTyping()) {
+                Editor.keyPressed(v, e.getKeyCode(), e.getScanCode(), e.getModifiers());
+                e.setCanceled(true);
+                return;
+            }
+            if (e.getScreen().getFocused() instanceof EditBox) return;
             if (Editor.keyPressed(v, e.getKeyCode(), e.getScanCode(), e.getModifiers())) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.MouseScrolled.Pre.class, safe(e -> {
             if (e.getScreen() instanceof GuiMap && EditorUi.mouseScrolled(e.getMouseX(), e.getMouseY(), e.getScrollDeltaY())) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.KeyReleased.Pre.class, safe(e -> {
-            if (e.getScreen() instanceof GuiMap && Editor.keyReleased(e.getKeyCode())) e.setCanceled(true);
+            if (!(e.getScreen() instanceof GuiMap)) return;
+            // Xaero fires some map keybinds on release: releases while typing are ours too.
+            if (Editor.isTyping() || Editor.keyReleased(e.getKeyCode())) e.setCanceled(true);
         }));
         NeoForge.EVENT_BUS.addListener(ScreenEvent.CharacterTyped.Pre.class, safe(e -> {
-            if (!(e.getScreen() instanceof GuiMap) || e.getScreen().getFocused() instanceof EditBox) return;
+            if (!(e.getScreen() instanceof GuiMap)) return;
+            if (Editor.isTyping()) {
+                Editor.charTyped(e.getCodePoint());
+                e.setCanceled(true);
+                return;
+            }
+            if (e.getScreen().getFocused() instanceof EditBox) return;
             if (Editor.charTyped(e.getCodePoint())) e.setCanceled(true);
         }));
     }

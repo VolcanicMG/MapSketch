@@ -215,17 +215,41 @@ final class StampPicker {
         return b != null && gx >= b[0] && gx < b[0] + b[2] && gy >= b[1] && gy < b[1] + b[3];
     }
 
-    /** While open the search field takes every key. */
-    static boolean keyPressed(int key) {
+    // Ctrl+A selected the whole search: the next character or Backspace replaces it.
+    private static boolean all;
+
+    /** While open the search field takes every key (Ctrl+A/C/V/X act on the whole search). */
+    static boolean keyPressed(int key, int mods) {
         if (!open) return false;
         build();
+        if (EditorUi.ctrl(mods)) {
+            switch (key) {
+                case GLFW.GLFW_KEY_A -> all = !search.isEmpty();
+                case GLFW.GLFW_KEY_C -> EditorUi.setClipboard(search);
+                case GLFW.GLFW_KEY_X -> {
+                    EditorUi.setClipboard(search);
+                    search = "";
+                }
+                case GLFW.GLFW_KEY_V -> {
+                    String add = EditorUi.clipboard().replaceAll("[\\p{Cntrl}]", "");
+                    search = ((all ? "" : search) + add).substring(0, Math.min(40, (all ? 0 : search.length()) + add.length()));
+                    all = false;
+                }
+                default -> {
+                }
+            }
+            return true;
+        }
+        boolean wasAll = all;
+        all = false;
         switch (key) {
             case GLFW.GLFW_KEY_ESCAPE -> {
                 if (!search.isEmpty()) search = "";
                 else close();
             }
-            case GLFW.GLFW_KEY_BACKSPACE -> {
-                if (!search.isEmpty()) search = search.substring(0, search.length() - 1);
+            case GLFW.GLFW_KEY_BACKSPACE, GLFW.GLFW_KEY_DELETE -> {
+                if (wasAll) search = "";
+                else if (key == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) search = search.substring(0, search.length() - 1);
             }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
                 if (!results.isEmpty()) pick(results.get(Math.min(highlight, results.size() - 1)));
@@ -257,6 +281,8 @@ final class StampPicker {
 
     static boolean charTyped(char c) {
         if (!open) return false;
+        if (all) search = "";
+        all = false;
         if (c >= ' ' && search.length() < 40) search += c;
         return true;
     }
@@ -285,6 +311,7 @@ final class StampPicker {
             outline(g, x + pad, yy, w - pad * 2, fh, ACCENT);
             boolean empty = search.isEmpty();
             String caret = System.currentTimeMillis() / 400 % 2 == 0 ? "_" : "";
+            if (all && !empty) g.fill(x + pad + 2, yy + 2, x + pad + 4 + font.width(search), yy + fh - 2, 0xFFC9D7FF);
             g.drawString(font, empty ? caret + tr("stamp_search") : search + caret, x + pad + 3, yy + (fh - 8) / 2,
                     empty ? 0xFF9AA0A6 : 0xFF1E1E1E, false);
             clearBox = empty ? null : new int[]{x + w - pad - fh, yy, fh, fh};

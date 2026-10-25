@@ -1320,9 +1320,20 @@ public final class Editor {
 
     // ---- keyboard ----
 
+    /**
+     * @return true while any MapSketch text input is active (in-map text editing, stamp search, colour picker): every
+     * key is then ours, and neither Xaero's map keybinds nor our tool shortcuts may fire
+     */
+    public static boolean isTyping() {
+        return editing != null || EditorUi.isTyping();
+    }
+
+    // Ctrl+A selected the whole text being edited: the next character or Backspace replaces it.
+    private static boolean textAll;
+
     public static boolean keyPressed(MapView v, int key, int scancode, int mods) {
         view = v;
-        if (EditorUi.keyPressed(key)) return true;
+        if (EditorUi.keyPressed(key, mods)) return true;
         if (MapSketchKeys.TOGGLE.matches(key, scancode) && editing == null) {
             toggleDrawMode();
             return true;
@@ -1331,15 +1342,38 @@ public final class Editor {
         boolean ctrl = (mods & GLFW.GLFW_MOD_CONTROL) != 0 || (mods & GLFW.GLFW_MOD_SUPER) != 0;
         boolean shift = (mods & GLFW.GLFW_MOD_SHIFT) != 0;
         if (editing != null) {
+            Element cur = live(editing.id);
+            String text = cur != null ? cur.text : editing.text;
+            boolean all = textAll;
+            textAll = false;
+            if (ctrl) {
+                switch (key) {
+                    case GLFW.GLFW_KEY_A -> textAll = !text.isEmpty();
+                    case GLFW.GLFW_KEY_C -> EditorUi.setClipboard(text);
+                    case GLFW.GLFW_KEY_X -> {
+                        EditorUi.setClipboard(text);
+                        setText("");
+                    }
+                    case GLFW.GLFW_KEY_V -> {
+                        if (all) setText("");
+                        typeText(EditorUi.clipboard(), false);
+                    }
+                    case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitText();
+                    default -> {
+                    }
+                }
+                return true;
+            }
+            // Arrows, Home/End, Tab and the rest are swallowed: the caret stays at the end.
             switch (key) {
                 case GLFW.GLFW_KEY_ESCAPE -> commitText();
                 case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                    if (shift || ctrl) commitText();
+                    if (shift) commitText();
                     else typeText("\n", false);
                 }
-                case GLFW.GLFW_KEY_BACKSPACE -> typeText("", true);
-                case GLFW.GLFW_KEY_V -> {
-                    if (ctrl) typeText(Minecraft.getInstance().keyboardHandler.getClipboard(), false);
+                case GLFW.GLFW_KEY_BACKSPACE, GLFW.GLFW_KEY_DELETE -> {
+                    if (all) setText("");
+                    else if (key == GLFW.GLFW_KEY_BACKSPACE) typeText("", true);
                 }
                 default -> {
                 }
@@ -1436,8 +1470,20 @@ public final class Editor {
     public static boolean charTyped(char c) {
         if (EditorUi.charTyped(c)) return true;
         if (editing == null) return false;
+        if (textAll) setText("");
+        textAll = false;
         if (c >= ' ' && c != 127) typeText(String.valueOf(c), false);
         return true;
+    }
+
+    /** Replaces the whole text being edited. */
+    private static void setText(String s) {
+        Element cur = live(editing.id);
+        Element e = (cur != null ? cur : editing).copy();
+        e.text = s;
+        fitText(e);
+        ClientStore.local(e, false);
+        editing = e;
     }
 
     // ---- clipboard, grouping, z-order ----
