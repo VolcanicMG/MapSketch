@@ -57,7 +57,7 @@ public final class EditorUi {
         Editor.Tool[] tools = Editor.Tool.values();
         int n = Editor.drawMode() ? tools.length + 1 : 1;
         int x = screenW / 2 - (n * (s + gap)) / 2, y = 24;
-        buttons.add(new Btn(x, y, s, s, "✐", Editor.drawMode(), 0, Editor::toggleDrawMode,
+        buttons.add(new Btn(x, y, s, s, "#draw", Editor.drawMode(), 0, Editor::toggleDrawMode,
                 Component.translatable("mapsketch.ui.draw_mode", MapSketchKeys.TOGGLE.getTranslatedKeyMessage()).getString()));
         if (!Editor.drawMode()) return;
         x += s + gap * 3;
@@ -93,20 +93,31 @@ public final class EditorUi {
         chip(x, yy, ColorPicker.Target.STROKE, st.stroke);
         y += row;
         // Background
-        label(x0, y, "background");
+        // Text has its own background box (none or solid); shapes have the full background and fill style.
+        boolean textOnly = textContext(sel);
+        int bg = textOnly ? st.textFill : st.fill;
+        label(x0, y, textOnly ? "text_background" : "background");
         yy = y + u(10);
         x = x0;
         for (int c : FILLS) {
             int fc = c;
-            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? "∅" : "", st.fill == c, c, () -> apply(s -> s.fill = fc, e -> e.fill = fc),
-                    c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
+            buttons.add(new Btn(x, yy, sw, sw, c == 0 ? "∅" : "", bg == c, c, () -> apply(s -> {
+                if (textOnly) s.textFill = fc;
+                else s.fill = fc;
+            }, e -> setBackground(e, fc)), c == 0 ? Component.translatable("mapsketch.ui.transparent").getString() : hexOf(c)));
             x += sw + gap;
         }
-        chip(x, yy, ColorPicker.Target.FILL, st.fill);
+        chip(x, yy, textOnly ? ColorPicker.Target.TEXT_FILL : ColorPicker.Target.FILL, bg);
         y += row;
-        y = options(x0, y, "fill", new String[]{"∅", "▧", "▦", "■"}, st.fillStyle.ordinal(), i -> {
+        if (textOnly) y = options(x0, y, "fill", new String[]{"∅", "■"}, (st.textFill >>> 24) != 0 ? 1 : 0, i -> {
+            int c = i == 0 ? 0 : (st.textFill >>> 24) != 0 ? st.textFill : 0xFFFFFFFF;
+            apply(s -> s.textFill = c, e -> setBackground(e, c));
+        });
+        else y = options(x0, y, "fill", new String[]{"∅", "▧", "▦", "■"}, st.fillStyle.ordinal(), i -> {
             Element.FillStyle f = Element.FillStyle.values()[i];
-            apply(s -> s.fillStyle = f, e -> e.fillStyle = f);
+            apply(s -> s.fillStyle = f, e -> {
+                if (e.type != Element.Type.TEXT) e.fillStyle = f;
+            });
         });
         y = options(x0, y, "width", new String[]{"thin", "bold", "extra"}, st.width, i ->
                 apply(s -> s.width = i, e -> e.strokeWidth = Editor.widthPreset(i)));
@@ -158,7 +169,7 @@ public final class EditorUi {
         if (text) {
             y = options(x0, y, "font_size", new String[]{"S", "M", "L", "XL"}, st.font, i ->
                     apply(s -> s.font = i, e -> e.fontSize = Editor.fontPreset(i)));
-            y = options(x0, y, "align", new String[]{"⫷", "≡", "⫸"}, st.align.ordinal(), i -> {
+            y = options(x0, y, "align", new String[]{"#align_left", "#align_center", "#align_right"}, st.align.ordinal(), i -> {
                 Element.Align a = Element.Align.values()[i];
                 apply(s -> s.align = a, e -> e.align = a);
             });
@@ -176,11 +187,11 @@ public final class EditorUi {
             });
         });
         if (!sel.isEmpty()) {
-            y = actions(x0, y, "layers", new String[]{"⤓", "↓", "↑", "⤒"}, new Runnable[]{
+            y = actions(x0, y, "layers", new String[]{"#to_back", "#backward", "#forward", "#to_front"}, new Runnable[]{
                     () -> Editor.reorder(-2), () -> Editor.reorder(-1), () -> Editor.reorder(1), () -> Editor.reorder(2)},
                     new String[]{"to_back", "backward", "forward", "to_front"});
             boolean locked = sel.stream().allMatch(e -> e.locked);
-            y = actions(x0, y, "actions", new String[]{"⧉", "✖", "▣", "▢", locked ? "⚿" : "⚷"}, new Runnable[]{
+            y = actions(x0, y, "actions", new String[]{"#duplicate", "#delete", "#group", "#ungroup", locked ? "#unlock" : "#lock"}, new Runnable[]{
                     Editor::duplicate, Editor::deleteSelection, Editor::group, Editor::ungroup,
                     () -> Editor.editSelection(e -> {
                         if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(e.owner)
@@ -188,6 +199,18 @@ public final class EditorUi {
                     })}, new String[]{"duplicate", "delete", "group", "ungroup", locked ? "unlock" : "lock"});
         }
         panelH = y - panelY + u(2);
+    }
+
+    /** @return true when the panel edits text only: the Text tool with nothing selected, or a selection of only text */
+    private static boolean textContext(List<Element> sel) {
+        return sel.isEmpty() ? Editor.tool() == Editor.Tool.TEXT : sel.stream().allMatch(e -> e.type == Element.Type.TEXT);
+    }
+
+    /** Sets an element's background: text gets a solid box (or none when transparent), shapes just the colour. */
+    static void setBackground(Element e, int c) {
+        e.fill = c;
+        if (e.type == Element.Type.TEXT)
+            e.fillStyle = (c >>> 24) != 0 ? Element.FillStyle.SOLID : Element.FillStyle.NONE;
     }
 
     private static void apply(Consumer<Editor.Style> s, Consumer<Element> e) {
@@ -210,8 +233,11 @@ public final class EditorUi {
             int fi = i;
             String g = glyphs[i];
             // Lowercase words are translation keys; anything else is a glyph.
-            String tip = g.matches("[a-z_]+") ? Component.translatable("mapsketch.ui." + g).getString() : g;
-            buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, tip, i == active, 0, () -> pick.accept(fi), tip));
+            // "#name" is a drawn icon (tooltip from its translation key).
+            String tip = g.matches("[a-z_]+") ? Component.translatable("mapsketch.ui." + g).getString()
+                    : g.startsWith("#") ? Component.translatable("mapsketch.ui." + g.substring(1)).getString() : g;
+            String label = g.startsWith("#") ? g : tip;
+            buttons.add(new Btn(x + i * (w + u(2)), y + u(10), w, h, label, i == active, 0, () -> pick.accept(fi), tip));
         }
         return y + u(10) + h + u(2);
     }
@@ -386,7 +412,9 @@ public final class EditorUi {
                 g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), b.swatch());
             } else if (b.active()) g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), ACTIVE);
             outline(g, b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : BORDER);
-            if (!b.label().isEmpty()) {
+            if (b.label().startsWith("#") && UiIcons.has(b.label().substring(1)))
+                UiIcons.draw(g, b.label().substring(1), b.x(), b.y(), b.w(), b.h(), b.active() ? ACCENT : TEXT);
+            else if (!b.label().isEmpty()) {
                 int tw = font.width(b.label());
                 g.drawString(font, b.label(), b.x() + (b.w() - tw) / 2, b.y() + (b.h() - 8) / 2, b.swatch() == 0xFF1E1E1E ? 0xFFFFFFFF : TEXT, false);
             }

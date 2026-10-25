@@ -12,6 +12,10 @@ First release.
   guarded; popovers only claim releases of presses they consumed; queued edits flushed before a colour preview;
   bound arrows follow only geometry changes with a zoom-independent gap, and are re-followed after a stale reject;
   exact encoded element size for batching and rate limits.
+- Text background: text can have a padded background box (colour from the panel's Text background row, none or
+  solid; round or sharp edges; follows opacity and rotation; included in selection and hit-testing). Default is no
+  box. Panel icons for text alignment, layers, duplicate/delete/group/ungroup/lock and the draw-mode button are now
+  drawn pixel icons instead of font glyphs.
 - Typing in MapSketch inputs (in-map text, stamp search, colour picker / hex) never triggers Xaero's map keybinds or
   MapSketch tool shortcuts any more: while typing, every key press and release is MapSketch's. Ctrl+A/C/V/X work on
   the whole text.

@@ -59,6 +59,19 @@ public final class Element {
     public boolean locked, deleted;
     public long updated;
 
+    /**
+     * @return true for a TEXT element with a background box: a non-transparent background colour with fill style
+     * SOLID (what the panel sets; older text that merely inherited a shape fill style stays without a box)
+     */
+    public boolean textBackground() {
+        return type == Type.TEXT && (fill >>> 24) != 0 && fillStyle == FillStyle.SOLID;
+    }
+
+    /** @return padding of a text background box around the text, in blocks (0 without a background) */
+    public double textPad() {
+        return textBackground() ? fontSize * 0.25 : 0;
+    }
+
     public boolean linear() {
         return type == Type.ARROW || type == Type.LINE || type == Type.FREEDRAW;
     }
@@ -88,7 +101,10 @@ public final class Element {
 
     /** @return local-space bounds {minX, minZ, maxX, maxZ} relative to (x, z), unrotated */
     public double[] localBounds() {
-        if (!linear()) return new double[]{0, 0, w, h};
+        if (!linear()) {
+            double p = textPad();
+            return p == 0 ? new double[]{0, 0, w, h} : new double[]{-p, -p, w + p, h + p};
+        }
         double minX = 0, minZ = 0, maxX = 0, maxZ = 0;
         for (int i = 0; i < pts.length; i += 2) {
             minX = Math.min(minX, pts[i]);

@@ -15,7 +15,8 @@ import org.lwjgl.glfw.GLFW;
  * next-shape style; closing with Enter or a click outside keeps them as one edit, Esc reverts.
  */
 final class ColorPicker {
-    enum Target { STROKE, FILL }
+    /** TEXT_FILL: the background box of text (style.textFill; solid when opaque, none when transparent). */
+    enum Target { STROKE, FILL, TEXT_FILL }
 
     private enum Part { NONE, SV, HUE, ALPHA }
 
@@ -55,14 +56,18 @@ final class ColorPicker {
         v = hsv[2];
         alpha = Colors.alpha(old);
         // A transparent background opens as opaque white-ish so dragging shows something.
-        if (t == Target.FILL && alpha == 0) alpha = 255;
+        if (t != Target.STROKE && alpha == 0) alpha = 255;
         hex = null;
         x = Math.max(2, Math.min(anchorX, screenW - width() - 2));
         y = Math.max(2, Math.min(anchorY, screenH - height() - 2));
     }
 
     private static int current() {
-        return target == Target.STROKE ? Editor.style.stroke : Editor.style.fill;
+        return switch (target) {
+            case STROKE -> Editor.style.stroke;
+            case FILL -> Editor.style.fill;
+            case TEXT_FILL -> Editor.style.textFill;
+        };
     }
 
     /** Ends the session: kept = one property change and undo step; otherwise the old colour comes back. */
@@ -82,8 +87,11 @@ final class ColorPicker {
     }
 
     private static void setStyle(int c) {
-        if (target == Target.STROKE) Editor.style.stroke = c;
-        else Editor.style.fill = c;
+        switch (target) {
+            case STROKE -> Editor.style.stroke = c;
+            case FILL -> Editor.style.fill = c;
+            case TEXT_FILL -> Editor.style.textFill = c;
+        }
     }
 
     /** Applies a colour to the style and previews it on the selection (local only). */
@@ -92,7 +100,7 @@ final class ColorPicker {
         Target t = target;
         Editor.previewSelection(e -> {
             if (t == Target.STROKE) e.stroke = c;
-            else e.fill = c;
+            else EditorUi.setBackground(e, c);
         });
     }
 

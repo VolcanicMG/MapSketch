@@ -112,5 +112,10 @@
   "mapsketch.stamp.shield": "Shield",
   "mapsketch.stamp.coin": "Coin",
   "mapsketch.stamp.home_base": "Home base",
-  "mapsketch.stamp.danger": "Danger"
+  "mapsketch.stamp.danger": "Danger",
+  "mapsketch.ui.text_background": "Text background",
+  "mapsketch.ui.align_left": "Align left",
+  "mapsketch.ui.align_center": "Align center",
+  "mapsketch.ui.align_right": "Align right",
+  "mapsketch.ui.draw": "Draw mode"
 }

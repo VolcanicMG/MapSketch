@@ -47,7 +47,8 @@ dropping to not bind.
 
 The panel on the left sets the style of the selection and of the next shape: stroke and background colour, fill,
 stroke width and style, sloppiness, edges, opacity, arrowheads, text size and alignment, who can see it, layers,
-duplicate/delete/group/lock.
+duplicate/delete/group/lock. For text the Background row becomes Text background: pick a colour to draw a padded
+box behind the text (round or sharp per Edges, rotated with it, transparent = no box).
 
 Stamps: the Stamp tool opens a picker under the toolbar with a search field and three tabs:
 

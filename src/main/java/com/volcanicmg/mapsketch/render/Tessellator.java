@@ -57,7 +57,20 @@ public final class Tessellator {
         Random rnd = new Random(e.seed);
         int stroke = withOpacity(e.stroke, e.opacity), fill = withOpacity(e.fill, e.opacity);
         int discSegs = (int) Math.max(6, Math.min(20, Math.round(width * pxPerBlock * 0.8)));
-        if (e.type == Element.Type.TEXT) return m;
+        if (e.type == Element.Type.TEXT) {
+            // Optional background box behind the text (the text itself is drawn by the client's font renderer).
+            if (e.textBackground()) {
+                float[] box = Geometry.outline(e);
+                double cx = e.w / 2, cz = e.h / 2;
+                int n = box.length / 2;
+                for (int i = 0; i < n; i++) {
+                    int j = (i + 1) % n;
+                    m.tri(cx, cz, box[i * 2], box[i * 2 + 1], box[j * 2], box[j * 2 + 1], fill);
+                }
+                rotate(m, e);
+            }
+            return m;
+        }
         // Stamps are textured quads drawn by the client (pixel symbols, map icons, item sprites).
         if (e.type == Element.Type.STAMP) return m;
         float[] outline = Geometry.outline(e);

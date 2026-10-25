@@ -16,8 +16,9 @@ public final class Geometry {
     public static float[] outline(Element e) {
         double w = e.w, h = e.h;
         return switch (e.type) {
-            case RECTANGLE, TEXT, STAMP -> e.round && e.type == Element.Type.RECTANGLE ? roundRect(w, h)
+            case RECTANGLE, STAMP -> e.round && e.type == Element.Type.RECTANGLE ? roundRect(w, h)
                     : new float[]{0, 0, (float) w, 0, (float) w, (float) h, 0, (float) h};
+            case TEXT -> textBox(e);
             case DIAMOND -> {
                 float[] d = {(float) w / 2, 0, (float) w, (float) h / 2, (float) w / 2, (float) h, 0, (float) h / 2};
                 yield e.round ? roundCorners(d, 0.2f) : d;
@@ -26,6 +27,14 @@ public final class Geometry {
             case LINE, ARROW -> e.round && e.pointCount() > 2 ? catmullRom(e.pts, 8) : e.pts;
             case FREEDRAW -> e.pts;
         };
+    }
+
+    /** A text element's box, grown by the background padding and rounded when its edges are round. */
+    private static float[] textBox(Element e) {
+        double p = e.textPad(), w = e.w + 2 * p, h = e.h + 2 * p;
+        float[] r = e.round && p > 0 ? roundRect(w, h) : new float[]{0, 0, (float) w, 0, (float) w, (float) h, 0, (float) h};
+        for (int i = 0; i < r.length; i++) r[i] -= (float) p;
+        return r;
     }
 
     private static float[] roundRect(double w, double h) {

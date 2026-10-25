@@ -32,6 +32,7 @@ public final class SelfCheck {
         follow();
         fixedBindings();
         stamps();
+        textBackground();
         codec();
         System.out.println("MapSketch self-check passed");
     }
@@ -455,6 +456,30 @@ public final class SelfCheck {
         st.stamp = "sym:star";
         Element back = ElementCodec.fromBytes(ElementCodec.toBytes(st));
         check(back.sameContent(st) && back.stamp.equals("sym:star"), "stamp codec round trip");
+    }
+
+    /** Text background box: padded bounds, hit-testing inside the padding, drawn only when solid and opaque. */
+    private static void textBackground() {
+        Element t = rect(10, 10, 20, 8);
+        t.type = Element.Type.TEXT;
+        t.fontSize = 8;
+        t.text = "hi";
+        check(!t.textBackground() && t.textPad() == 0 && Arrays.equals(t.localBounds(), new double[]{0, 0, 20, 8}), "no box by default");
+        check(Tessellator.tessellate(t, 1, 4).count == 0, "plain text draws no mesh");
+        t.fill = 0xFFFFEC99;
+        t.fillStyle = Element.FillStyle.HACHURE;
+        check(!t.textBackground(), "an inherited shape fill style is not a text box");
+        t.fillStyle = Element.FillStyle.SOLID;
+        check(t.textBackground() && t.textPad() == 2 && Arrays.equals(t.localBounds(), new double[]{-2, -2, 22, 10}), "padded box");
+        check(Geometry.hit(t, 8.5, 9, 0.1) && !Geometry.hit(t, 7, 9, 0.1), "padding is hit-testable");
+        Tessellator.Mesh m = Tessellator.tessellate(t, 1, 4);
+        check(m.count > 0, "box drawn");
+        for (int i = 0; i < m.count; i++) check(m.xy[i * 2] >= -2.01 && m.xy[i * 2] <= 22.01, "box inside the padded bounds");
+        t.round = true;
+        check(Geometry.outline(t).length > 8 && Tessellator.tessellate(t, 1, 4).count > m.count, "round edges round the box");
+        t.angle = (float) (Math.PI / 2);
+        double[] b = t.worldBounds();
+        check(Math.abs(b[2] - b[0] - 12) < 1e-4 && Math.abs(b[3] - b[1] - 24) < 1e-4, "rotated box bounds");
     }
 
     private static int lum(int rgb) {

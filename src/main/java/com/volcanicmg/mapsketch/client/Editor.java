@@ -51,6 +51,8 @@ public final class Editor {
     public static final class Style {
         public int stroke = Config.parseColor(Config.DEFAULT_STROKE.get(), 0xFF1E1E1E);
         public int fill = Config.parseColor(Config.DEFAULT_FILL.get(), 0);
+        /** Background box of new text; transparent = none. */
+        public int textFill;
         public Element.FillStyle fillStyle = Element.FillStyle.HACHURE;
         public int width = Config.DEFAULT_WIDTH.get().ordinal();
         public Element.StrokeStyle strokeStyle = Element.StrokeStyle.SOLID;
@@ -386,6 +388,11 @@ public final class Editor {
         e.stroke = style.stroke;
         e.fill = style.fill;
         e.fillStyle = style.fillStyle;
+        if (type == Element.Type.TEXT) {
+            // Text has its own background setting, transparent by default.
+            e.fill = style.textFill;
+            e.fillStyle = (style.textFill >>> 24) != 0 ? Element.FillStyle.SOLID : Element.FillStyle.NONE;
+        }
         e.strokeWidth = (float) Math.max(com.volcanicmg.mapsketch.model.Rules.MIN_STROKE, WIDTHS[style.width] * zoomFactor(v));
         e.strokeStyle = style.strokeStyle;
         e.roughness = style.roughness;
@@ -1610,8 +1617,11 @@ public final class Editor {
         Element e = selection.isEmpty() ? null : live(selection.iterator().next());
         if (e == null || view == null) return;
         style.stroke = e.stroke;
-        style.fill = e.fill;
-        style.fillStyle = e.fillStyle;
+        if (e.type == Element.Type.TEXT) style.textFill = e.textBackground() ? e.fill : 0;
+        else {
+            style.fill = e.fill;
+            style.fillStyle = e.fillStyle;
+        }
         style.strokeStyle = e.strokeStyle;
         style.roughness = e.roughness;
         style.round = e.round;
