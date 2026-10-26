@@ -79,6 +79,7 @@ public final class PanelPreview {
         }
         row(a, lay, "Text size", new String[]{"S", "M", "L", "XL"}, 1, -1, draw);
         row(a, lay, "Text align", new String[]{"#align_left", "#align_center", "#align_right"}, 0, -1, draw);
+        row(a, lay, "Layer", new String[]{"Under icons", "Over icons"}, 0, -1, draw);
         row(a, lay, "Visible to", new String[]{"Only me", "Team", "Everyone"}, 2, teams ? -1 : 1, draw);
         row(a, lay, "Layers", new String[]{"#to_back", "#backward", "#forward", "#to_front"}, -1, -1, draw);
         row(a, lay, "Actions", new String[]{"#duplicate", "#delete", "#group", "#ungroup", "#lock"}, -1, -1, draw);

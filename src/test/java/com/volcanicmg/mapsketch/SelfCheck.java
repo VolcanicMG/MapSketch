@@ -646,6 +646,29 @@ public final class SelfCheck {
         check(ElementCodec.size(bare) == ElementCodec.toBytes(bare).length, "size exact for a stamp without owner");
         check(back.sameContent(e) && back.id.equals(e.id) && back.version == 7 && back.nonce == -3 && back.baseNonce == 11
                 && back.owner.equals(A), "codec round trip");
+        // Map layer (format 5): round trip, default Under, and older formats decode as Under.
+        Element over = e.copy();
+        over.layer = Element.Layer.OVER;
+        Element overBack = ElementCodec.fromBytes(ElementCodec.toBytes(over));
+        check(overBack.layer == Element.Layer.OVER && !overBack.sameContent(e) && ElementCodec.size(over) == ElementCodec.toBytes(over).length,
+                "layer round trip");
+        check(new Element().layer == Element.Layer.UNDER && back.layer == Element.Layer.UNDER, "layer defaults to Under");
+        byte[] v5 = ElementCodec.toBytes(over), v4 = Arrays.copyOf(v5, v5.length - 1);
+        v4[0] = 4;
+        Element old = ElementCodec.fromBytes(v4);
+        check(old.layer == Element.Layer.UNDER && old.id.equals(e.id) && old.version == 7, "format 4 decodes as Under");
+        byte[] badLayer = v5.clone();
+        badLayer[badLayer.length - 1] = 9;
+        boolean threw = false;
+        try {
+            ElementCodec.fromBytes(badLayer);
+        } catch (IllegalArgumentException x) {
+            threw = true;
+        }
+        check(threw, "unknown layer rejected");
+        Element noLayer = rect(0, 0, 1, 1);
+        noLayer.layer = null;
+        check("bad layer".equals(Rules.validate(noLayer, new Rules.Limits(100, 100))), "layer validated");
     }
 
     private static void check(boolean ok, String what) {

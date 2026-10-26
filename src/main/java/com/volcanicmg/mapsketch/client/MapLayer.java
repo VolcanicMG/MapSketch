@@ -44,16 +44,35 @@ public final class MapLayer {
         return new Scene(list, ghosts, replaced, draft);
     }
 
-    public static void renderWorldMap(GuiGraphics g, MapView v) {
+    /** @return the layer an element is drawn in, after the client's {@code layerOverride} */
+    public static Element.Layer layerOf(Element e) {
+        return switch (Config.LAYER_OVERRIDE.get()) {
+            case ALL_UNDER -> Element.Layer.UNDER;
+            case ALL_OVER -> Element.Layer.OVER;
+            case AUTO -> e.layer;
+        };
+    }
+
+    /** @return only the elements drawn in {@code layer} (ghosts and drafts by their own layer) */
+    public static List<Element> inLayer(List<Element> list, Element.Layer layer) {
+        List<Element> out = new ArrayList<>(list.size());
+        for (Element e : list) if (layerOf(e) == layer) out.add(e);
+        return out;
+    }
+
+    /** One layer of the world map; laser trails and the text caret go with the Over pass. */
+    public static void renderWorldMap(GuiGraphics g, MapView v, Element.Layer layer) {
         if (!Config.ENABLED.get()) return;
         Scene s = scene(v.dim());
-        if (Config.SHOW_OTHERS_CURSORS.get())
+        boolean over = layer == Element.Layer.OVER;
+        if (over && Config.SHOW_OTHERS_CURSORS.get())
             for (ClientStore.Remote r : ClientStore.remotes())
                 if (r.live.dim().equals(v.dim())) laser(g, v, r.live.laser(), r.live.x(), r.live.z());
-        SketchRenderer.drawAll(g, s.stored(), v.camX(), v.camZ(), v.scale(), v.box(), true, Editor.faded(), s.replaced());
-        SketchRenderer.drawLive(g, s.ghosts(), v.camX(), v.camZ(), v.scale(), 0.85f);
+        SketchRenderer.drawAll(g, inLayer(s.stored(), layer), v.camX(), v.camZ(), v.scale(), v.box(), true, Editor.faded(), s.replaced());
+        SketchRenderer.drawLive(g, inLayer(s.ghosts(), layer), v.camX(), v.camZ(), v.scale(), 0.85f);
         if (!Editor.drawMode()) return;
-        if (s.draft() != null) SketchRenderer.drawLive(g, List.of(s.draft()), v.camX(), v.camZ(), v.scale(), 1f);
+        if (s.draft() != null && layerOf(s.draft()) == layer) SketchRenderer.drawLive(g, List.of(s.draft()), v.camX(), v.camZ(), v.scale(), 1f);
+        if (!over) return;
         List<double[]> own = Editor.laser();
         if (!own.isEmpty()) {
             float[] pts = new float[own.size() * 2];

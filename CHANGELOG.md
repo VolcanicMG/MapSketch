@@ -4,6 +4,9 @@
 
 First release.
 
+- Map layer per drawing: "Under icons" (default; above terrain and claims, below waypoints, player icons and radar)
+  or "Over icons" (above them), set in the panel's Layer row. A client option `layerOverride` (AUTO / ALL_UNDER /
+  ALL_OVER) forces one layer for everything. Element format 5 (older saves load as Under); network channel 6.
 - Live sync on both maps: the world map and the minimap now draw from one shared scene (stored elements, other
   players' live ghosts replacing the shapes they are moving, our own shape in progress), so the minimap shows moves,
   new strokes and deletions as they happen. A ghost of a stored element is placed by the stored element's dimension,

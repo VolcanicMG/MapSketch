@@ -48,7 +48,9 @@ public final class MinimapLayer {
             MinimapFBORenderer fbo = minimap == null ? null : minimap.getMinimapFBORenderer();
             MinimapElementMapRendererHandler handler = fbo == null ? null : ((MinimapFboAccessor) fbo).mapsketch$handler();
             if (handler == null || handler == registeredOn) return;
-            handler.add(new Renderer(handler));
+            // Under: before the radar, waypoints and player trackers (order -1); Over: after all of them.
+            handler.add(new Renderer(handler, Element.Layer.UNDER));
+            handler.add(new Renderer(handler, Element.Layer.OVER));
             registeredOn = handler;
         } catch (Throwable t) {
             broken = true;
@@ -69,17 +71,19 @@ public final class MinimapLayer {
 
     static final class Renderer extends MinimapElementRenderer<Anchor, Anchor> {
         private final MinimapElementMapRendererHandler handler;
+        private final Element.Layer layer;
         private boolean done;
 
-        Renderer(MinimapElementMapRendererHandler handler) {
+        Renderer(MinimapElementMapRendererHandler handler, Element.Layer layer) {
             super(new Reader(), new Provider(), new Anchor());
             this.handler = handler;
+            this.layer = layer;
         }
 
-        // Before entity radar icons.
+        // Xaero renders by ascending order: radar 0, waypoints and player trackers 100.
         @Override
         public int getOrder() {
-            return -1;
+            return layer == Element.Layer.UNDER ? -1 : 1_000_000;
         }
 
         @Override
@@ -117,10 +121,10 @@ public final class MinimapLayer {
                     pose.scale(zoom, zoom, 1);
                     // Same scene as the world map: live ghosts replace what others are moving, our shape in progress too.
                     MapLayer.Scene s = MapLayer.scene(dim.location().toString());
-                    SketchRenderer.drawAll(g, s.stored(), a.x, a.z, zoom, new double[]{a.x - r, a.z - r, a.x + r, a.z + r},
-                            false, Set.of(), s.replaced());
-                    List<Element> live = new java.util.ArrayList<>(s.ghosts());
-                    if (s.draft() != null) live.add(s.draft());
+                    SketchRenderer.drawAll(g, MapLayer.inLayer(s.stored(), layer), a.x, a.z, zoom,
+                            new double[]{a.x - r, a.z - r, a.x + r, a.z + r}, false, Set.of(), s.replaced());
+                    List<Element> live = new java.util.ArrayList<>(MapLayer.inLayer(s.ghosts(), layer));
+                    if (s.draft() != null && MapLayer.layerOf(s.draft()) == layer) live.add(s.draft());
                     SketchRenderer.drawLive(g, live, a.x, a.z, zoom, 0.85f);
                 } finally {
                     pose.popPose();

@@ -187,6 +187,7 @@ public final class SyncSim {
         concurrentNudgesShareArrow();
         reset();
         liveDrag();
+        layerSync();
         System.out.println("SyncSim: " + passed + " scenarios passed");
     }
 
@@ -609,6 +610,20 @@ public final class SyncSim {
         check(op(ALICE, done).equals("ok") && store.get(r.id).x == base.x + 30, "release commits the move");
         server.release(ALICE, List.of());
         pass("live drag", "a leased drag streams its moved ghost to the peer at every step, then commits");
+    }
+
+    /** The map layer is an ordinary property: set on create, changed by an edit, seen by peers. */
+    static void layerSync() {
+        Element r = rect(ALICE);
+        r.layer = Element.Layer.OVER;
+        check(op(ALICE, r).equals("ok") && store.get(r.id).layer == Element.Layer.OVER
+                && c(BOB).elements.get(r.id).layer == Element.Layer.OVER, "Over layer stored and broadcast");
+        Element under = c(ALICE).elements.get(r.id).copy();
+        under.baseNonce = under.nonce;
+        under.nonce = RND.nextInt();
+        under.layer = Element.Layer.UNDER;
+        check(op(ALICE, under).equals("ok") && c(BOB).elements.get(r.id).layer == Element.Layer.UNDER, "layer change reaches the peer");
+        pass("map layer", "the Under/Over layer is stored, edited and broadcast like any property");
     }
 
     static void operators() {

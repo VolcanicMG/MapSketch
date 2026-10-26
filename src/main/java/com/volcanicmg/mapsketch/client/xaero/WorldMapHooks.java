@@ -7,6 +7,7 @@ import com.volcanicmg.mapsketch.client.ConfigButton;
 import com.volcanicmg.mapsketch.client.Editor;
 import com.volcanicmg.mapsketch.client.EditorUi;
 import com.volcanicmg.mapsketch.client.MapLayer;
+import com.volcanicmg.mapsketch.model.Element;
 import com.volcanicmg.mapsketch.client.MapView;
 import com.volcanicmg.mapsketch.mixin.GuiMapAccessor;
 import net.minecraft.client.Minecraft;
@@ -28,7 +29,7 @@ import xaero.map.gui.GuiWorldMapSettings;
  * Input uses NeoForge's cancellable screen events, so no Xaero input method is patched.
  */
 public final class WorldMapHooks {
-    private static boolean mixinSeen, drewInMap, broken, middlePan;
+    private static boolean mixinSeen, drewInMap, overSeen, drewOver, broken, middlePan;
 
     private WorldMapHooks() {
     }
@@ -169,14 +170,28 @@ public final class WorldMapHooks {
         }
     }
 
-    /** Called by the GuiMap mixin right before Xaero draws waypoints; the pose is already in map space. */
+    /** Called by the GuiMap mixin right before Xaero draws waypoints; the pose is already in map space. Under layer. */
     public static void renderInMap(GuiGraphics g, GuiMap map) {
         mixinSeen = true;
         MapView v = view(map);
         if (v == null) return;
         drewInMap = true;
         try {
-            MapLayer.renderWorldMap(g, v);
+            MapLayer.renderWorldMap(g, v, Element.Layer.UNDER);
+        } catch (Throwable t) {
+            fail(t);
+        }
+    }
+
+    /** Called by the GuiMap mixin after Xaero's map elements and player arrow, still in map space. Over layer. */
+    public static void renderInMapOver(GuiGraphics g, GuiMap map) {
+        if (broken || !drewInMap) return;
+        overSeen = true;
+        MapView v = view(map);
+        if (v == null) return;
+        drewOver = true;
+        try {
+            MapLayer.renderWorldMap(g, v, Element.Layer.OVER);
         } catch (Throwable t) {
             fail(t);
         }
@@ -187,20 +202,24 @@ public final class WorldMapHooks {
         MapView v = view(map);
         if (v == null) return;
         GuiGraphics g = e.getGuiGraphics();
-        // Without the mixin, draw over the map (and over waypoints) from here instead.
-        if (!mixinSeen && !drewInMap) {
+        // Without the mixin, draw over the map (and over waypoints) from here instead; same for the Over layer alone
+        // when only its injection point is missing.
+        boolean under = !mixinSeen && !drewInMap, over = !drewOver && (under || !overSeen || drewInMap);
+        if (under || over) {
             PoseStack pose = g.pose();
             pose.pushPose();
             pose.scale((float) (1 / v.guiScale()), (float) (1 / v.guiScale()), 1);
             pose.translate(v.winW() / 2, v.winH() / 2, 0);
             pose.scale((float) v.scale(), (float) v.scale(), 1);
             try {
-                MapLayer.renderWorldMap(g, v);
+                if (under) MapLayer.renderWorldMap(g, v, Element.Layer.UNDER);
+                if (over) MapLayer.renderWorldMap(g, v, Element.Layer.OVER);
             } finally {
                 pose.popPose();
             }
         }
         drewInMap = false;
+        drewOver = false;
         Editor.onFrame(v, e.getMouseX(), e.getMouseY());
         // The controls guide docks top-right below Xaero's widgets there.
         int top = 4;

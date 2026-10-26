@@ -13,8 +13,8 @@ import java.util.UUID;
  * Minecraft. Hard caps here only stop absurd payloads; the configurable limits live in {@link Rules#validate}.
  */
 public final class ElementCodec {
-    // 2 added baseNonce, 3 fixed binding points, 4 stamps; older formats are still read.
-    private static final int FORMAT = 4;
+    // 2 added baseNonce, 3 fixed binding points, 4 stamps, 5 map layer; older formats are still read (layer UNDER).
+    private static final int FORMAT = 5;
     public static final int MAX_STAMP = 128;
     public static final int MAX_POINTS = 10_000, MAX_TEXT = 4096, MAX_GROUPS = 16, MAX_ORDER = 64;
 
@@ -63,6 +63,7 @@ public final class ElementCodec {
         buf.writeBoolean(e.locked);
         buf.writeBoolean(e.deleted);
         buf.writeLong(e.updated);
+        buf.writeByte(e.layer.ordinal());
     }
 
     private static Element read(DataInputStream buf) throws IOException {
@@ -115,6 +116,7 @@ public final class ElementCodec {
         e.locked = buf.readBoolean();
         e.deleted = buf.readBoolean();
         e.updated = buf.readLong();
+        if (format >= 5) e.layer = pick(Element.Layer.values(), buf.readByte());
         return e;
     }
 
@@ -140,7 +142,7 @@ public final class ElementCodec {
     /** @return encoded size in bytes (exact), for payload splitting and rate limits */
     public static int size(Element e) {
         // Exactly what write() produces (the self-check compares it with the real encoding).
-        return 118 + e.pts.length * 4 + utfLen(e.dim) + utfLen(e.text) + utfLen(e.stamp) + utfLen(e.order)
+        return 119 + e.pts.length * 4 + utfLen(e.dim) + utfLen(e.text) + utfLen(e.stamp) + utfLen(e.order)
                 + (e.startBind != null ? 16 : 0) + (e.endBind != null ? 16 : 0)
                 + (e.startFixed != null ? 8 : 0) + (e.endFixed != null ? 8 : 0)
                 + e.groups.length * 16 + (e.owner != null ? 16 : 0);

@@ -64,6 +64,7 @@ public final class Editor {
         public Element.Align align = Element.Align.LEFT;
         /** Null until the user picks one: the server default applies. */
         public Element.Visibility visibility;
+        public Element.Layer layer = Element.Layer.UNDER;
         public boolean locked;
         /** Stamp placed by the Stamp tool. */
         public String stamp = "sym:pin";
@@ -407,6 +408,7 @@ public final class Editor {
         ServerInfoPayload info = ClientStore.info();
         e.visibility = style.visibility != null ? style.visibility
                 : info != null ? info.defaultVisibility() : Element.Visibility.PUBLIC;
+        e.layer = style.layer;
         List<Element> all = ClientStore.sorted(v.dim());
         e.order = FracIndex.between(all.isEmpty() ? null : all.get(all.size() - 1).order, null);
         return e;
@@ -1642,6 +1644,7 @@ public final class Editor {
         style.opacity = e.opacity;
         style.align = e.align;
         style.visibility = e.visibility;
+        style.layer = e.layer;
         style.locked = e.locked;
         if (e.type == Element.Type.ARROW) {
             style.arrowStart = e.arrowStart;

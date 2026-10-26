@@ -101,6 +101,7 @@ public final class Rules {
         if (!FracIndex.valid(e.order)) return "bad order";
         if (!validFixed(e.startFixed, e.startBind) || !validFixed(e.endFixed, e.endBind)) return "bad binding";
         if (e.type == Element.Type.STAMP ? !validStamp(e.stamp) : !e.stamp.isEmpty()) return "bad stamp";
+        if (e.layer == null) return "bad layer";
         return null;
     }
 

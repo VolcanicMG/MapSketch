@@ -19,4 +19,14 @@ public abstract class GuiMapMixin {
     private void mapsketch$drawShapes(GuiGraphics g, int mouseX, int mouseY, float partial, CallbackInfo ci) {
         WorldMapHooks.renderInMap(g, (GuiMap) (Object) this);
     }
+
+    /**
+     * The Over layer: right after the batch that ends Xaero's map-space pass (map elements, then the player arrows),
+     * the third {@code endBatch} in {@code render} for World Map 1.47.0; the pose is still in map space there.
+     */
+    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", require = 0, at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;endBatch()V", ordinal = 2, shift = At.Shift.AFTER))
+    private void mapsketch$drawOver(GuiGraphics g, int mouseX, int mouseY, float partial, CallbackInfo ci) {
+        WorldMapHooks.renderInMapOver(g, (GuiMap) (Object) this);
+    }
 }

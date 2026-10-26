@@ -21,6 +21,9 @@ public final class Element {
 
     public enum Visibility { PRIVATE, TEAM, PUBLIC }
 
+    /** Map layer: UNDER = above terrain and highlights, below map icons (waypoints, players, radar); OVER = above them. */
+    public enum Layer { UNDER, OVER }
+
     public UUID id;
     public String dim;
     public Type type;
@@ -57,6 +60,7 @@ public final class Element {
     public UUID owner;
     public Visibility visibility = Visibility.PUBLIC;
     public boolean locked, deleted;
+    public Layer layer = Layer.UNDER;
     public long updated;
 
     /**
@@ -178,6 +182,7 @@ public final class Element {
         e.locked = locked;
         e.deleted = deleted;
         e.updated = updated;
+        e.layer = layer;
         return e;
     }
 
@@ -191,6 +196,6 @@ public final class Element {
                 && java.util.Objects.equals(startBind, o.startBind) && java.util.Objects.equals(endBind, o.endBind)
                 && Arrays.equals(startFixed, o.startFixed) && Arrays.equals(endFixed, o.endFixed)
                 && Arrays.equals(groups, o.groups) && order.equals(o.order) && visibility == o.visibility
-                && locked == o.locked && deleted == o.deleted;
+                && locked == o.locked && deleted == o.deleted && layer == o.layer;
     }
 }

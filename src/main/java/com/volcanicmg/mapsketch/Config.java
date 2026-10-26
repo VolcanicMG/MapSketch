@@ -8,6 +8,9 @@ public final class Config {
 
     public enum Width { THIN, BOLD, EXTRA_BOLD }
 
+    /** Which map layer drawings use: each drawing's own setting, or all under / all over map icons. */
+    public enum LayerOverride { AUTO, ALL_UNDER, ALL_OVER }
+
     public static final ModConfigSpec SERVER_SPEC;
     public static final ModConfigSpec.EnumValue<DefaultVisibility> DEFAULT_VISIBILITY;
     public static final ModConfigSpec.BooleanValue TEAM_CAN_EDIT;
@@ -27,6 +30,7 @@ public final class Config {
     public static final ModConfigSpec.ConfigValue<String> DEFAULT_FILL;
     public static final ModConfigSpec.EnumValue<Width> DEFAULT_WIDTH;
     public static final ModConfigSpec.IntValue DEFAULT_ROUGHNESS;
+    public static final ModConfigSpec.EnumValue<LayerOverride> LAYER_OVERRIDE;
 
     static {
         ModConfigSpec.Builder s = new ModConfigSpec.Builder();
@@ -56,6 +60,8 @@ public final class Config {
                 .define("defaultFillColor", "#00000000");
         DEFAULT_WIDTH = c.defineEnum("defaultStrokeWidth", Width.BOLD);
         DEFAULT_ROUGHNESS = c.comment("0 = architect, 1 = artist, 2 = cartoonist.").defineInRange("defaultSloppiness", 0, 0, 2);
+        LAYER_OVERRIDE = c.comment("AUTO = each drawing's Layer setting; ALL_UNDER / ALL_OVER = every drawing under / over map icons (waypoints, players).")
+                .defineEnum("layerOverride", LayerOverride.AUTO);
         CLIENT_SPEC = c.build();
     }
 

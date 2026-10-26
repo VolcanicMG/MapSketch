@@ -192,6 +192,12 @@ public final class EditorUi {
         ServerInfoPayload info = ClientStore.info();
         boolean teams = info != null && info.teams();
         Element.Visibility cur = st.visibility != null ? st.visibility : info != null ? info.defaultVisibility() : Element.Visibility.PUBLIC;
+        // Map layer: under or over Xaero's icons (waypoints, players); text like Visible to.
+        options(lay, "layer", new String[]{tr("layer_under"), tr("layer_over")}, new String[]{"layer_under_tip", "layer_over_tip"},
+                st.layer.ordinal(), -1, i -> {
+                    Element.Layer l = Element.Layer.values()[i];
+                    apply(s -> s.layer = l, e -> e.layer = l);
+                });
         // Text, not icons; Team stays visible but disabled (with the reason) when the server has no FTB Teams.
         options(lay, "visibility", new String[]{tr("vis_private"), tr("team"), tr("vis_public")},
                 new String[]{null, teams ? "vis_team" : "vis_team_unavailable", null}, cur.ordinal(), teams ? -1 : 1, i -> {

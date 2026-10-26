@@ -64,7 +64,7 @@ blocks and scales with zoom (drawn at least 1.5 screen px wide). Freehand is sim
 
 ## Collaboration protocol
 
-Server authoritative. Optional channel `registrar("5").optional()` (bumped with every wire format change), every send guarded by `hasChannel`.
+Server authoritative. Optional channel `registrar("6").optional()` (bumped with every wire format change), every send guarded by `hasChannel`.
 
 | Payload | Dir | Content |
 |---|---|---|
@@ -225,12 +225,21 @@ config is `required: false`. `neoforge.mods.toml` pins World Map `[1.47.0,1.48)`
 Xaero-facing callback (screen events, the in-map hook, minimap pre-render and render) catches `Throwable`, logs once
 and disables that layer for the session. The safe-mode (non-FBO) minimap is not supported.
 
+
+Map layers (per element `layer`, client `layerOverride` AUTO / ALL_UNDER / ALL_OVER): on the world map the Under
+pass is the injection before `MapElementRenderHandler.render`; the Over pass injects after the third
+`BufferSource.endBatch()` in `GuiMap.render` (1.47.0: the batch that closes the map-space pass after map elements
+and the player arrows), still in map space. If that point is not reached in a frame (`require = 0`), the Over layer is
+drawn from `ScreenEvent.Render.Post` instead (above Xaero's UI too). On the minimap both are IN_MINIMAP element
+renderers: Under at order -1 (before radar 0, waypoints and player trackers 100), Over at order 1,000,000; markers
+Xaero draws in its over-minimap pass stay above both. Laser trails and the caret go with the Over pass; lease
+outlines, selection handles and the UI are GUI overlays, always on top.
 ## Config and commands
 
 Server: `defaultVisibility` (AUTO = TEAM with FTB Teams, else PUBLIC), `teamCanEdit` (true), `shareWithAllies`
 (true), `maxPointsPerElement` (2000), `maxElementsPerPlayer` (2000), `maxElementsPerDimension` (20000),
 `maxTextLength` (500), `editKBps` (256, also the live budget). Client: `enabled`, `showOnMinimap`,
-`showOthersCursors`, `showHints`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`.
+`showOthersCursors`, `showHints`, `defaultStrokeColor`, `defaultFillColor`, `defaultStrokeWidth`, `defaultSloppiness`, `layerOverride`.
 
 Commands (op level 2): `/mapsketch clear player <p> | dimension <d> | all`, `/mapsketch release <player> | all`,
 `/mapsketch stats`.

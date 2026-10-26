@@ -227,5 +227,11 @@
   "mapsketch.hint.typing.2": "finish",
   "mapsketch.hint.typing.3": "select all, then type to replace",
   "mapsketch.hint.typing.4": "copy / paste / cut",
-  "mapsketch.configuration.showHints": "Show the controls guide"
+  "mapsketch.configuration.showHints": "Show the controls guide",
+  "mapsketch.ui.layer": "Layer",
+  "mapsketch.ui.layer_under": "Under icons",
+  "mapsketch.ui.layer_over": "Over icons",
+  "mapsketch.ui.layer_under_tip": "Above terrain and claims, below waypoints and player icons",
+  "mapsketch.ui.layer_over_tip": "Above waypoints and player icons",
+  "mapsketch.configuration.layerOverride": "Drawing layer"
 }
