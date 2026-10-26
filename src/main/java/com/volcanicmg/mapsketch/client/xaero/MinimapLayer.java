@@ -3,7 +3,9 @@ package com.volcanicmg.mapsketch.client.xaero;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.volcanicmg.mapsketch.Config;
 import com.volcanicmg.mapsketch.MapSketch;
-import com.volcanicmg.mapsketch.client.ClientStore;
+import com.volcanicmg.mapsketch.client.MapLayer;
+import com.volcanicmg.mapsketch.model.Element;
+import java.util.List;
 import com.volcanicmg.mapsketch.client.SketchRenderer;
 import com.volcanicmg.mapsketch.mixin.MinimapFboAccessor;
 import com.volcanicmg.mapsketch.mixin.MinimapHandlerAccessor;
@@ -113,8 +115,13 @@ public final class MinimapLayer {
                     pose.translate(partialX, partialY, 0);
                     pose.mulPose(new Matrix4f(ps, pc, 0, 0, -pc, ps, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
                     pose.scale(zoom, zoom, 1);
-                    SketchRenderer.drawAll(g, ClientStore.sorted(dim.location().toString()), a.x, a.z, zoom,
-                            new double[]{a.x - r, a.z - r, a.x + r, a.z + r}, false, Set.of(), Set.of());
+                    // Same scene as the world map: live ghosts replace what others are moving, our shape in progress too.
+                    MapLayer.Scene s = MapLayer.scene(dim.location().toString());
+                    SketchRenderer.drawAll(g, s.stored(), a.x, a.z, zoom, new double[]{a.x - r, a.z - r, a.x + r, a.z + r},
+                            false, Set.of(), s.replaced());
+                    List<Element> live = new java.util.ArrayList<>(s.ghosts());
+                    if (s.draft() != null) live.add(s.draft());
+                    SketchRenderer.drawLive(g, live, a.x, a.z, zoom, 0.85f);
                 } finally {
                     pose.popPose();
                 }

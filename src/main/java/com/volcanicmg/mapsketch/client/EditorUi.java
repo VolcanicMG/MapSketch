@@ -682,6 +682,9 @@ public final class EditorUi {
             for (UUID id : h.ids()) {
                 Element e = ClientStore.get(id);
                 if (e == null || e.deleted || !e.dim.equals(v.dim())) continue;
+                // The outline follows the holder's live ghost while they drag it.
+                Element gh = ClientStore.ghostOf(id);
+                if (gh != null) e = gh;
                 double[] b = e.worldBounds();
                 double[] f = {(b[0] + b[2]) / 2, (b[1] + b[3]) / 2, 0, (b[2] - b[0]) / 2, (b[3] - b[1]) / 2};
                 guiBox(g, v, f, c, v.blocks(3));

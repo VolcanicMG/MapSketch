@@ -4,6 +4,11 @@
 
 First release.
 
+- Live sync on both maps: the world map and the minimap now draw from one shared scene (stored elements, other
+  players' live ghosts replacing the shapes they are moving, our own shape in progress), so the minimap shows moves,
+  new strokes and deletions as they happen. A ghost of a stored element is placed by the stored element's dimension,
+  and a lease outline follows its holder's ghost. The server logs a once-a-minute summary of dropped live ghosts by
+  reason, so a peer not seeing a drag can be diagnosed from the server log.
 - Fix: arrows bound to a shape now follow it when it is moved, resized or rotated (the grab's lease request was
   emptied before it was sent), and on arrow-key nudges, in the same undo step; arrows bound at both ends to moved
   shapes aim centre to centre.

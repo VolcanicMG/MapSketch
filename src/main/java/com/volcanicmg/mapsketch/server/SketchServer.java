@@ -112,7 +112,11 @@ public final class SketchServer {
             resyncEveryone = false;
             resyncIn = -1;
         }
-        if (++ticks % 1200 == 0) sync(s).prune();
+        if (++ticks % 1200 == 0) {
+            sync(s).prune();
+            var drops = sync(s).takeGhostDrops();
+            if (!drops.isEmpty()) com.volcanicmg.mapsketch.MapSketch.LOGGER.info("MapSketch live ghosts dropped in the last minute: {}", drops);
+        }
     }
 
     static void send(ServerPlayer p, CustomPacketPayload payload) {

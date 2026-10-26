@@ -18,25 +18,42 @@ public final class MapLayer {
     private MapLayer() {
     }
 
-    public static void renderWorldMap(GuiGraphics g, MapView v) {
-        if (!Config.ENABLED.get()) return;
-        List<Element> list = ClientStore.sorted(v.dim());
-        // Other players' live ghosts replace the stored element they are dragging or typing into.
+    /**
+     * What a map shows for a dimension, shared by the world map and the minimap: stored elements, other players' live
+     * ghosts (a ghost of a stored element replaces it while it lives, so moving shapes move) and our own shape in
+     * progress.
+     */
+    public record Scene(List<Element> stored, List<Element> ghosts, Set<UUID> replaced, Element draft) {
+    }
+
+    public static Scene scene(String dim) {
+        List<Element> list = ClientStore.sorted(dim);
         Set<UUID> replaced = new HashSet<>();
         List<Element> ghosts = new ArrayList<>();
         if (Config.SHOW_OTHERS_CURSORS.get())
-            for (ClientStore.Remote r : ClientStore.remotes()) {
-                for (Element gh : r.ghosts.values())
-                    if (gh.dim.equals(v.dim())) {
-                        ghosts.add(gh);
-                        replaced.add(gh.id);
-                    }
+            for (ClientStore.Remote r : ClientStore.remotes())
+                for (Element gh : r.ghosts.values()) {
+                    // A ghost of a stored element belongs where the stored one is, whatever dim string it carries.
+                    Element stored = ClientStore.get(gh.id);
+                    String d = stored != null && !stored.deleted ? stored.dim : gh.dim;
+                    if (!d.equals(dim)) continue;
+                    ghosts.add(gh);
+                    replaced.add(gh.id);
+                }
+        Element draft = Editor.drawMode() && Editor.draft() != null && Editor.draft().dim.equals(dim) ? Editor.draft() : null;
+        return new Scene(list, ghosts, replaced, draft);
+    }
+
+    public static void renderWorldMap(GuiGraphics g, MapView v) {
+        if (!Config.ENABLED.get()) return;
+        Scene s = scene(v.dim());
+        if (Config.SHOW_OTHERS_CURSORS.get())
+            for (ClientStore.Remote r : ClientStore.remotes())
                 if (r.live.dim().equals(v.dim())) laser(g, v, r.live.laser(), r.live.x(), r.live.z());
-            }
-        SketchRenderer.drawAll(g, list, v.camX(), v.camZ(), v.scale(), v.box(), true, Editor.faded(), replaced);
-        SketchRenderer.drawLive(g, ghosts, v.camX(), v.camZ(), v.scale(), 0.85f);
+        SketchRenderer.drawAll(g, s.stored(), v.camX(), v.camZ(), v.scale(), v.box(), true, Editor.faded(), s.replaced());
+        SketchRenderer.drawLive(g, s.ghosts(), v.camX(), v.camZ(), v.scale(), 0.85f);
         if (!Editor.drawMode()) return;
-        if (Editor.draft() != null) SketchRenderer.drawLive(g, List.of(Editor.draft()), v.camX(), v.camZ(), v.scale(), 1f);
+        if (s.draft() != null) SketchRenderer.drawLive(g, List.of(s.draft()), v.camX(), v.camZ(), v.scale(), 1f);
         List<double[]> own = Editor.laser();
         if (!own.isEmpty()) {
             float[] pts = new float[own.size() * 2];

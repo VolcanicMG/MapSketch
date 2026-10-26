@@ -208,6 +208,15 @@ public final class ClientStore {
         r.ghosts.putAll(next);
     }
 
+    /** @return another player's live ghost of {@code id}, or null */
+    public static Element ghostOf(UUID id) {
+        for (Remote r : remotes()) {
+            Element g = r.ghosts.get(id);
+            if (g != null) return g;
+        }
+        return null;
+    }
+
     /** @return live remote players; drops ones silent for 3 s */
     public static Iterable<Remote> remotes() {
         long now = System.currentTimeMillis();

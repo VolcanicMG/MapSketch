@@ -670,6 +670,16 @@ public final class SyncServer {
      * players who can see them; new-shape ghosts and the cursor follow the sender's visibility. Over 25/s or over
      * the live byte rate the update is dropped; "inactive" is relayed only as inactive.
      */
+    // Live ghosts dropped since the last report, by reason (diagnostics: a moving shape that peers never see).
+    private final Map<String, Integer> ghostDrops = new HashMap<>();
+
+    /** @return ghost drops by reason since the last call, then forgets them */
+    public Map<String, Integer> takeGhostDrops() {
+        Map<String, Integer> out = new HashMap<>(ghostDrops);
+        ghostDrops.clear();
+        return out;
+    }
+
     public void live(UUID p, Live in) {
         Peer peer = peers.get(p);
         if (peer == null) return;
@@ -696,7 +706,10 @@ public final class SyncServer {
             Element stored = store.get(g.id);
             if (stored != null && !stored.deleted) {
                 Lease l = leases.get(g.id);
-                if (l == null || !l.holder.equals(p)) continue;
+                if (l == null || !l.holder.equals(p)) {
+                    ghostDrops.merge("no lease", 1, Integer::sum);
+                    continue;
+                }
                 g.owner = stored.owner;
                 g.visibility = stored.visibility;
             } else {
@@ -704,7 +717,10 @@ public final class SyncServer {
                 g.visibility = in.visibility();
             }
             int from = in.appendFrom()[i];
-            if (from < 0 ? Rules.validate(g, env.settings().limits()) != null : !validAppend(g, from)) continue;
+            if (from < 0 ? Rules.validate(g, env.settings().limits()) != null : !validAppend(g, from)) {
+                ghostDrops.merge(from < 0 ? "invalid: " + Rules.validate(g, env.settings().limits()) : "bad append", 1, Integer::sum);
+                continue;
+            }
             // Ghost stamps get the same registry check as stored ones: no made-up item ids reach other viewers.
             if (g.type == Element.Type.STAMP && g.stamp.startsWith("item:") && !env.itemExists(g.stamp.substring(5))) continue;
             ghosts.add(g);

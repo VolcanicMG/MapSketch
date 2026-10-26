@@ -185,6 +185,8 @@ public final class SyncSim {
         boundArrowFollows();
         stampValidation();
         concurrentNudgesShareArrow();
+        reset();
+        liveDrag();
         System.out.println("SyncSim: " + passed + " scenarios passed");
     }
 
@@ -574,6 +576,39 @@ public final class SyncSim {
         check(!c(BOB).live.containsKey(ALICE), "private live hidden");
         server.release(ALICE, List.of());
         pass("live relay", "ghosts only for leased (or new) elements, appends validated and relayed, private cursors withheld");
+    }
+
+    /**
+     * A real drag as the client does it: the shape exists (server-assigned version), the grab asks for a lease, then
+     * ghosts of the moving copy stream at the client's 20 Hz; the peer must see every step at its moved position.
+     */
+    static void liveDrag() {
+        Element r = rect(ALICE);
+        r.visibility = Element.Visibility.PUBLIC;
+        check(op(ALICE, r).equals("ok"), "shape stored");
+        Element base = c(ALICE).elements.get(r.id);
+        check(base != null && base.version > 0, "client holds the stored copy");
+        now += 1000;
+        server.acquire(ALICE, 7, List.of(r.id), List.of());
+        check(c(BOB).leases.getOrDefault(ALICE, Set.of()).contains(r.id), "peer sees the lease");
+        for (int step = 1; step <= 10; step++) {
+            Element moved = base.copy();
+            moved.x = base.x + step * 3;
+            moved.z = base.z - step;
+            moved.nonce = RND.nextInt();
+            now += 50;
+            server.live(ALICE, new Live(DIM, moved.x, moved.z, true, Element.Visibility.PUBLIC, List.of(moved), new int[]{-1}, new float[0]));
+            Live got = c(BOB).live.get(ALICE);
+            check(got != null && got.ghosts().size() == 1 && got.ghosts().get(0).id.equals(r.id)
+                    && got.ghosts().get(0).x == base.x + step * 3 && got.ghosts().get(0).z == base.z - step, "peer gets drag step " + step);
+        }
+        Element done = base.copy();
+        done.x = base.x + 30;
+        done.baseNonce = base.nonce;
+        done.nonce = RND.nextInt();
+        check(op(ALICE, done).equals("ok") && store.get(r.id).x == base.x + 30, "release commits the move");
+        server.release(ALICE, List.of());
+        pass("live drag", "a leased drag streams its moved ghost to the peer at every step, then commits");
     }
 
     static void operators() {
