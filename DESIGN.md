@@ -226,6 +226,16 @@ Xaero-facing callback (screen events, the in-map hook, minimap pre-render and re
 and disables that layer for the session. The safe-mode (non-FBO) minimap is not supported.
 
 
+`GuiMap.render` order in World Map 1.47.0 (javap): terrain region textures into an `ImprovedFramebuffer`, then
+highlights into the same buffer (`renderDynamicHighlight`, server chunk radius, export selection, Open Parties and
+Claims `renderDynamicChunkHighlight`), `endBatch` #0; the framebuffer is composited to the screen (`endBatch` #1);
+`PlayerTrackerMapElementRenderer.update`; `MapElementRenderHandler.render` (every map element: waypoints, tracked
+players, the Minimap's entity radar via `RadarRendererWrapperHelper`, other mods' elements); the player dot and
+arrows; `endBatch` #2; two `popPose` leave map space. Every icon pass is inside or after `MapElementRenderHandler`,
+so Under (injected just before it) is above terrain and highlights and below all icons. Our depth-ordered pass
+clears the depth buffer before and after itself: Xaero draws radar icons with depth testing, and depth left behind
+by drawings hid mob icons under Under drawings and handles under Over drawings.
+
 Map layers (per element `layer`, client `layerOverride` AUTO / ALL_UNDER / ALL_OVER): on the world map the Under
 pass is the injection before `MapElementRenderHandler.render`; the Over pass injects after the third
 `BufferSource.endBatch()` in `GuiMap.render` (1.47.0: the batch that closes the map-space pass after map elements

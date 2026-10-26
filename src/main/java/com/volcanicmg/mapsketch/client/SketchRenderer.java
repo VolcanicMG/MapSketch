@@ -123,7 +123,7 @@ public final class SketchRenderer {
      * Draws the elements inside the view box, bottom first.
      *
      * @param depthOrdered give each element its own depth so its overlapping triangles blend once (world map only;
-     *                     clears the depth buffer)
+     *                     clears the depth buffer before and after, so nothing drawn later is depth-hidden)
      * @param faded        ids drawn at 30% (eraser preview)
      * @param replaced     ids not drawn here because the caller draws a live copy
      */
@@ -156,6 +156,9 @@ public final class SketchRenderer {
             if (!e.text.isEmpty()) drawText(g, e, camX, camZ, pxPerBlock, depthOrdered ? -200 + i * step + step / 2 : 0.1f);
         }
         g.flush();
+        // Leave no depth behind: Xaero's later icons (radar mobs, tracked players) and our handles are depth-tested
+        // and would otherwise be hidden wherever a drawing is.
+        if (depthOrdered) RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
     }
 
     /** Textured stamp quads per draw pass; stamps beyond it are drawn as tiles. */

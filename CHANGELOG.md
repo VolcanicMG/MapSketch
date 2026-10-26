@@ -4,6 +4,10 @@
 
 First release.
 
+- Fix: drawings no longer hide things drawn after them on the world map. Their depth-ordered pass left depth
+  behind, so mob icons from the Minimap radar showed under "Under icons" drawings, and selection handles / link nodes
+  lying on a drawing's outline (side midpoints) showed under "Over icons" drawings. The pass now clears depth after
+  itself.
 - Map layer per drawing: "Under icons" (default; above terrain and claims, below waypoints, player icons and radar)
   or "Over icons" (above them), set in the panel's Layer row. A client option `layerOverride` (AUTO / ALL_UNDER /
   ALL_OVER) forces one layer for everything. Element format 5 (older saves load as Under); network channel 6.
